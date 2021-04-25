@@ -212,7 +212,7 @@ window.onkeydown = function(event) {
   if (event.metaKey && event.keyCode == 84) { // C-T
     chrome.windows.update(lastWindowId, { "focused": true })
     .then((wind) => {
-      chrome.tabs.create({index:0, windowId:lastWindowId})
+      chrome.tabs.create({windowId:lastWindowId})
       .then ((tab) => {
         
       })
@@ -468,7 +468,6 @@ var TabGroup = function(vnode) {
     if (title) chrome.tabGroups.update(this.id, {title: title})
   }
   function newTab(e) {
-    console.log("new tab in", this, e)
     e.preventDefault();
     e.stopPropagation();
     chrome.windows.update(lastWindowId, { "focused": true })
@@ -513,7 +512,9 @@ var TabGroup = function(vnode) {
           } 
           if ((opener == lastTab.id && !lastTab.isQuery)
               || (opener == lastTab.openerTabId && lastTab.indented)) {
-            tab.indented = true;
+            
+                console.log(opener, lastTab.id, lastTab.openerTabId, lastTab.isQuery, lastTab.indented, tab.title);
+              tab.indented = true;
           }
         }
 
@@ -543,7 +544,7 @@ var TabGroup = function(vnode) {
 
 
 let favicons = {
-  "newtab": "about:blank"
+  "chrome": "./img/newtab.png"
 }
 
 var Tab = function(vnode) {
@@ -591,6 +592,7 @@ var Tab = function(vnode) {
       } else {
          host = tab.url ? new URL(tab.url).hostname : tab.url;
       }
+      
       let favIconUrl = tab.favIconUrl || favicons[host] || `https://www.google.com/s2/favicons?domain=${host}`
 
       var classList = [];
@@ -622,9 +624,10 @@ var Tab = function(vnode) {
         index: tab.index + 1,
         title:title,
         class:classList.join(" "),
-        style:`background-image:url(${tab.favIconUrl})`,
       }
-
+      if (favIconUrl) {
+        attrs.style = `background-image:url(${favIconUrl})`
+      }
       attrs.onclick = onclick.bind(tab)
       attrs.draggable = true;
       
