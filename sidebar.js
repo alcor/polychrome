@@ -4,7 +4,7 @@ let v = (nameObject) => { for(let varName in nameObject) { return varName; } }
 
 
 // Stored Values
-var autofocus = getDefault(v({autofocus}), true);
+var autofocus = getDefault(v({autofocus}), false);
 var preserveGroups = getDefault(v({preserveGroups}), true);
 
 
@@ -592,7 +592,7 @@ var Tab = function(vnode) {
       } else {
          host = tab.url ? new URL(tab.url).hostname : tab.url;
       }
-      
+
       let favIconUrl = tab.favIconUrl || favicons[host] || `https://www.google.com/s2/favicons?domain=${host}`
 
       var classList = [];
