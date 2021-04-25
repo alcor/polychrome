@@ -188,7 +188,7 @@ document.addEventListener("drop", function( event ) {
 
   if (dropIndex > dragIndex) dropIndex--;
   //console.log(`move to ${wid} > ${gid} to ${dropIndex} from ${dragIndex}`)
-  
+
   chrome.tabs.query({highlighted:true, windowId:wid}, tabs => {
     var tabIds = tabs.map(tab => tab.id);
 
@@ -459,8 +459,6 @@ function saveOpeners() {
 }
 var TabGroup = function(vnode) {
   function onclick (e) {
-    e.butt
-    console.log(e)
     chrome.tabGroups.update(this.id, { 'collapsed': !this.info.collapsed });
   }
   function oncontextmenu (e) {
@@ -529,11 +527,11 @@ var TabGroup = function(vnode) {
           m('div.title', title),
           m('div.actions',
             m('div.action.newtab', {title:'New tab in group', onclick:newTab.bind(group)}, m('span.material-icons',"add_circle")),
-            // m('div.action.ungroup', {title:'Ungroup'}, m('span.material-icons',"layers_clear")),
-            // m('div.action.popout', {title:'Open in new window'}, m('span.material-icons',"open_in_new")),
-            // m('div.action.more', {title:'Menu'}, m('span.material-icons',"more_vert")),
-            // m('div.action.archive', {title:'Archive'}, m('span.material-icons',"save_alt")),
-            // m('div.action.close', {title:'Close'}, m('span.material-icons',"close"))
+            // m('div.action.disabled.ungroup', {title:'Ungroup'}, m('span.material-icons',"layers_clear")),
+            // m('div.action.disabled.popout', {title:'Open in new window'}, m('span.material-icons',"open_in_new")),
+            m('div.action.disabled.more', {title:'Menu'}, m('span.material-icons',"more_vert")),
+            m('div.action.disabled.archive', {title:'Archive'}, m('span.material-icons',"save_alt")),
+            m('div.action.disabled.close', {title:'Close'}, m('span.material-icons',"close"))
           )
         ),
         children

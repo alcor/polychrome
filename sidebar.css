@@ -230,6 +230,10 @@ div.menu > div:hover {
   width:0;
 }
 
+.action.disabled {
+  pointer-events:none;
+  opacity:0.2
+}
 .action:hover {
   background-color:var(--text-color);
   color:var(--background-color);
