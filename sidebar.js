@@ -121,7 +121,6 @@ document.addEventListener("dragstart", function( event ) {
   })
 
 document.addEventListener("dragenter", function( event ) {
-  // prevent default to allow drop
   event.preventDefault();
   let target = event.target;
   target = target.closest('[index]');  
@@ -160,18 +159,14 @@ document.addEventListener("drop", function( event ) {
   draggedTab.classList.remove("dragged");
   if (!target || target == draggedTab) return;
   event.preventDefault();
-
-  console.log("drop on", target)
   let dragId = parseInt(draggedTab.getAttribute("id"));
   let dragIndex = parseInt(draggedTab.getAttribute("index"));
   let dropIndex = parseInt(target.getAttribute("index"));
   let wid = parseInt(target.getAttribute("wid"));
   let gid = parseInt(target.getAttribute("gid"));
-  //if (gid < 0) gid = undefined;
 
   if (dropIndex > dragIndex) dropIndex--;
   console.log(`move to ${wid} > ${gid} to ${dropIndex} from ${dragIndex}`)
-
 
   chrome.tabs.query({highlighted:true, windowId:wid}, tabs => {
     var tabIds = tabs.map(tab => tab.id);
@@ -186,26 +181,15 @@ document.addEventListener("drop", function( event ) {
       }
     })
   })
-  //chrome.tabGroups.move(groupId, {index:index});
-
-
-
 }, false);
-
-
-
 
 window.onkeydown = function(event) {
 
-  if(event.metaKey && event.keyCode == 84) { 
+  if (event.metaKey && event.keyCode == 84) { 
     event.preventDefault(); 
-  }
-
-  if(event.metaKey && event.keyCode == 83) { 
+  } else if(event.metaKey && event.keyCode == 83) { 
     event.preventDefault(); 
-  } 
-  
-  if(event.metaKey && event.keyCode == 82) { 
+  } else if(event.metaKey && event.keyCode == 82) { 
     let options = event.shiftKey ? {} : undefined;
     chrome.tabs.query({highlighted:true, windowId: lastWindowId})
     .then((tabs) => {
@@ -214,9 +198,7 @@ window.onkeydown = function(event) {
       })
     });
     event.preventDefault(); 
-  }
-
-  if (event.key == "Backspace" || 
+  } else if (event.key == "Backspace" || 
       (event.metaKey && event.keyCode == 87)) { 
     console.log("Hey! Ctrl+W event captured!");
     event.preventDefault();     
@@ -243,18 +225,13 @@ function popOutSidebar(id) {
   window.close();
 }
 
-
-// Header
-
 function showMenu() {
-
 }
 
 
 
-
 //
-// tab Lifecycle
+// tab lifecycle
 //
 
 
@@ -273,8 +250,6 @@ function updateTabs() {
   });
 }
 
-
-
 function updateGroup(tabGroup) {
   groupInfo[tabGroup.id] = tabGroup;
   m.redraw();
@@ -289,31 +264,20 @@ chrome.tabs.onMoved.addListener(updateTabs);
 chrome.tabs.onRemoved.addListener(updateTabs);
 chrome.tabs.onReplaced.addListener(updateTabs);
 chrome.tabs.onUpdated.addListener(updateTabs);
+chrome.tabGroups.onCreated.addListener(updateTabs);
+chrome.tabGroups.onMoved.addListener(updateTabs);
+chrome.tabGroups.onRemoved.addListener(updateTabs);
+chrome.tabGroups.onUpdated.addListener(updateGroup);
 chrome.windows.onCreated.addListener(updateTabs);
+chrome.windows.onRemoved.addListener(updateTabs);
 chrome.windows.onFocusChanged.addListener((w) => {
   if (w != myWindowId) {
     lastWindowId = w;
     updateTabs();
   }
 });
-chrome.windows.onRemoved.addListener(updateTabs);
-chrome.tabGroups.onCreated.addListener(updateTabs);
-chrome.tabGroups.onMoved.addListener(updateTabs);
-chrome.tabGroups.onRemoved.addListener(updateTabs);
-chrome.tabGroups.onUpdated.addListener(updateGroup);
 
 updateTabs()
-
-
-
-
-
-
-
-
-
-
-
 
 
 
@@ -339,9 +303,22 @@ var Toolbar = function(vnode) {
     view: function() {
       return m("div.toolbar", 
         m(Search),
-        m('div.button', {onclick:sortTabs}, m('span.material-icons','sort')),
         myWindowId ? undefined : m('div.button#popout', {onclick:popOutSidebar}, m('span.material-icons','open_in_new')),
-        m('div.button', {onclick:showMenu}, m('span.material-icons','more_vert'))
+        m('div.button', {onclick:sortTabs},
+          m('span.material-icons','sort'),
+          m('div.sort.menu',
+            m('div', "Sort by Domain"),
+            m('div', "Sort by Name"),
+            m('div', "Sort by Date")
+          )),
+        m('div.button', {onclick:showMenu},
+          m('span.material-icons','more_vert'),
+          m('div.sort.menu',
+            m('div', "Aggressive autofocus"),
+            m('div', "Reload"),
+            m('div', "Something something windowmanagement")
+          )
+        )
       )   
     }
   }
@@ -560,7 +537,6 @@ var Tab = function(vnode) {
       if (tab.isQuery) classList.push('query');
       if (tab.indented) {
         classList.push('indented');
-        //console.log("OPENER", tab.openerTabId)
       }
 
       let title = titleForTab(tab)

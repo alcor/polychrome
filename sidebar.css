@@ -13,6 +13,7 @@ body {
   background: var(--background-color);
   color: var(--text-color);
   margin:0;
+  font-size:11px
 }
 
 .window.focused,
@@ -26,6 +27,34 @@ body.menu {
   height:512px;
 }
 
+div.menu {
+  background:white;
+  padding: 8px 0;
+  box-shadow: 2px 1px 4px rgba(0,0,0,0.2);
+  width:auto;
+  max-width:50%;
+  right:8px;
+  top: 48px;
+  position:absolute;
+  border-radius:2px;
+  display:none;
+}
+
+div.button:hover div.menu {
+  display: block;
+}
+
+div.menu > div {
+  text-overflow:ellipsis; 
+  padding: 6px 12px;
+  text-decoration: line-through;
+}
+
+div.menu > div:hover {
+  background-color:var(--highlight-color);
+  color: var(--text-color);
+}
+
 .button {
   width:40px;
   height:40px;
@@ -34,7 +63,10 @@ body.menu {
   box-sizing: border-box;
   user-select: none;
   cursor:default;
-  opacity:0.2;
+  opacity:1.0;
+}
+.button span {
+  opacity:0.4
 }
 
 #search {
@@ -81,7 +113,7 @@ body.menu {
   box-sizing:border-box;
 }
 .tab, .group > .header > .title, .window > .title {
-  padding:0 14px 0 32px;
+  padding:0 16px 0 32px;
   white-space: nowrap;
   text-overflow: ellipsis;
   cursor:pointer;
