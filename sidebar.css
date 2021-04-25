@@ -349,11 +349,14 @@ div.menu > div:hover {
 }
 
 .tab.dragged {
-  opacity:0.3;
+  opacity:0.2;
+  filter:blur(2px);
 }
+
 .tab:hover {
   background-color:var(--accent-highlight, --hover-color);
 }
+
 .tab.highlighted {
   background-color:var(--accent-light, Highlight);
   

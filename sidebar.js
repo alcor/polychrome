@@ -110,10 +110,11 @@ var iconReplacements = {
 }
 
 function titleForTab(tab) {
+  if (!tab.url.length) return tab.title;
   try {
     url = new URL(tab.url);
   } catch (e) {
-    console.log("cannot read url", e, tab.url)
+    console.log(`cannot read url "${tab.url}"`, e)
   }
 
   let replacement = titleReplacements[url.hostname];
@@ -135,7 +136,6 @@ document.addEventListener("dragstart", function( event ) {
     target = target.closest("[index]");
     draggedTab = target
     draggedTab.classList.add("dragged");
-    console.log("drag", event.target, draggedTab)
 
     var dt = event.dataTransfer;
     dt.effectAllowed = 'all';
@@ -153,8 +153,6 @@ document.addEventListener("dragenter", function( event ) {
   let dragIndex = parseInt(draggedTab.getAttribute("index"));
   let dropIndex = parseInt(target.getAttribute("index"));
   
-  console.log("enter", target.getAttribute("index"), event.target.className)
-
   if (dropIndex == dragIndex - 1) return; // TODO: Make sure groups aren't different
   if (!target || target == draggedTab) return;
   if (target) target.classList.add("droptarget", true);
@@ -165,7 +163,6 @@ document.addEventListener("dragleave", function( event ) {
   let target = event.target;
   target = target.closest("[index]");
   if (!target) return;
-  console.log("leave", target.getAttribute("index"), event.target.className)
   if (target) target.classList.remove("droptarget", true);
 }, false);
 
@@ -197,7 +194,6 @@ document.addEventListener("drop", function( event ) {
 
     if (!tabIds.includes(dragId)) tabIds = [dragId];
     chrome.tabs.move(tabIds, {index:dropIndex, windowId:wid}, () => {
-      console.log("ungroup", gid)
       if (gid == -1) {
         chrome.tabs.ungroup(tabIds)
       } else {
@@ -206,6 +202,12 @@ document.addEventListener("drop", function( event ) {
     })
   })
 }, false);
+
+document.addEventListener("dragend", function( event ) {
+  draggedTab.classList.remove("dragged");
+  draggedTab = undefined;
+})
+
 
 window.onkeydown = function(event) {
 
@@ -513,7 +515,7 @@ var TabGroup = function(vnode) {
           if ((opener == lastTab.id && !lastTab.isQuery)
               || (opener == lastTab.openerTabId && lastTab.indented)) {
             
-                console.log(opener, lastTab.id, lastTab.openerTabId, lastTab.isQuery, lastTab.indented, tab.title);
+              //console.log(opener, lastTab.id, lastTab.openerTabId, lastTab.isQuery, lastTab.indented, tab.title);
               tab.indented = true;
           }
         }
