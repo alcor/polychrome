@@ -30,17 +30,18 @@ window.addEventListener("focus", function(event) {
 // Window auto-focus
 
 var focusTimeout = undefined;
-document.addEventListener('mouseenter', e => {
-  if (myWindowId) chrome.windows.update(myWindowId, { "focused": true })
-  focusTimeout = setTimeout(e => {
-    //console.log("timeout")
-    },1000)
-  })
+if (navigator.platform == 'MacIntel') {
+  document.addEventListener('mouseenter', e => {
+    if (myWindowId) chrome.windows.update(myWindowId, { "focused": true })
+    focusTimeout = setTimeout(e => {
+      //console.log("timeout")
+      },1000)
+    })
 
   document.addEventListener('mouseleave', e => {
     clearTimeout(focusTimeout);
   })
-  
+}
 
 var activeQuery = undefined;
 function searchInput(e) {
@@ -52,13 +53,12 @@ function searchInput(e) {
 
   var query = e ? e.target.value : undefined;
   activeQuery = query;
-  //port.postMessage({query: query});
-  //chrome.runtime.sendMessage({ action: 'query', query:query}, function(response) {});
 }
   
 function sortByDomain(a,b) {
   return (a.url > b.url) ? 1 : ((b.url > a.url) ? -1 : 0)
 }
+
 function sortTabs() {
   chrome.windows.getAll({populate:true, windowTypes:['normal']}, w => {
     windows = w;
@@ -68,21 +68,10 @@ function sortTabs() {
       tabs.sort(sortByDomain);
       console.log(tabs.map(t=>t.url))
       win.tabs.forEach(tab => {
-
-
-
-
-
-
       });
     })
   });
 } 
-
-
-
-
-
 
 //
 // Utility functions
@@ -112,16 +101,6 @@ function titleForTab(tab) {
   return tab.title;
 }
 
-
-
-
-
-
-
-
-
-
-
 //
 // Drag and Drop
 //
@@ -135,8 +114,7 @@ document.addEventListener("dragstart", function( event ) {
     console.log("drag", event.target, draggedTab)
 
     var dt = event.dataTransfer;
-    event.dataTransfer.effectAllowed = 'all';
-
+    dt.effectAllowed = 'all';
     dt.setDragImage(draggedTab, 24,12);
     dt.setData("text/uri-list", url);
     dt.setData("text/plain", url);

@@ -5,7 +5,7 @@
   --text-color: black;  
   --highlight-color:#f8f8f8;
   --hover-color: #f8f8f8;
-
+  
   --toolbar-color:#fafafa;
 }
 
@@ -17,8 +17,7 @@ body {
 
 .window.focused,
 .window:hover {
-  
-  /* --highlight-color:Highlight; */
+
 }
 
 body.menu {
@@ -155,7 +154,7 @@ body.menu {
 }
 
 .group.no-group .header .title {
-display:none;
+  display:none;
 }
 .group.collapsed .tab .title,
 .group.collapsed .tab .close {
