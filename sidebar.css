@@ -473,7 +473,7 @@ div.menu > div:hover {
   --accent-dark: hsl(214, 4%, 39%);
 }
 .blue {
-  --accent-light: hsl(225, 6%, 14%);
+  --accent-light: hsl(220, 78%, 76%);
   --accent-highlight: hsla(220, 78%, 76%,0.3);
   --accent-dark: hsl(220, 73%, 55%);
 }
