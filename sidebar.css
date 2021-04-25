@@ -61,26 +61,19 @@ div.menu > div:hover {
   color: var(--text-color);
 }
 
-.button {
-  width:40px;
-  height:40px;
-  flex: 0 0 auto;
-  padding:8px;
-  box-sizing: border-box;
-  user-select: none;
-  cursor:default;
-  opacity:1.0;
-}
-.button span {
-  opacity:0.4
-}
 
 #search {
   color:var(--text-color);
-  opacity:0.0;
+  opacity:1.0;
+  border-radius:4px;
+  box-sizing:border-box;
+  border:2px solid transparent;
+
 }
 #search:focus {
   outline:none;
+  border:2px solid var(--text-color);
+
 }
 .toolbar {
   position:sticky;
@@ -91,24 +84,37 @@ div.menu > div:hover {
   height:41px;
   background-color:var(--toolbar-color);
   box-shadow:0 1px 1px rgba(0,0,0,0.4);
-  
-}
-
-#search:focus-within {
-  
-  
-  outline:1px solid Highlight;
 }
 
 .search {
-  width:100%;
-  width:200px;
+  min-width:100px;
+  flex: 1 1 auto;
+  }
+
+#search {
+  width:calc(100% - 24px);
 }
 
+.button {
+  width:40px;
+  height:40px;
+  flex: 0 0 auto;
+  padding:8px;
+  box-sizing: border-box;
+  user-select: none;
+  cursor:default;
+  opacity:1.0;
+}
+
+.button span {
+  opacity:0.4
+}
+
+
+
 .search input {
-  width:100%;
-  padding:8px 20px;
-  margin:4px 0 4px 4px;
+  padding:6px 10px;
+  margin:4px 0 4px 16px;
   border:none;
   background:transparent;
   box-sizing: border-box;
@@ -362,6 +368,11 @@ div.menu > div:hover {
 .tab.audible {
   font-weight:bold;
   background-color: red;
+}
+
+.tab.filtered {
+  height:0px;
+  overflow:hidden;
 }
 
 .tab.discarded, .tab.unloaded {

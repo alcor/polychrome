@@ -65,6 +65,7 @@ function searchInput(e) {
 
   var query = e ? e.target.value : undefined;
   activeQuery = query;
+  m.redraw();
 }
   
 function sortByDomain(a,b) {
@@ -230,7 +231,9 @@ window.onkeydown = function(event) {
     event.preventDefault(); 
   } else if (event.key == "Backspace" || 
       (event.metaKey && event.keyCode == 87)) { 
-    console.log("Hey! Ctrl+W event captured!");
+
+    if (event.target != document.body) return;
+    console.log("Hey! Ctrl+W event captured!", event);
     event.preventDefault();     
     chrome.tabs.query({highlighted:true, windowId: lastWindowId})
     .then((tabs) => {
@@ -371,7 +374,7 @@ var Search = function(vnode) {
   return {
     view: function() {
       return [
-        m("div.search#search", m("input", {type:"search", key:"search", placeholder:"Search"}))
+        m("div.search", m("input#search", {type:"search", key:"search", placeholder:"Filter", autocomplete:"off"}))
       ]  
     }
   }
@@ -605,6 +608,12 @@ var Tab = function(vnode) {
       }
 
       let title = titleForTab(tab)
+      if (activeQuery) {
+        if (!tab.title.toLowerCase().includes(activeQuery)) {
+          classList.push('filtered');
+        }
+      }
+      
 
       let attrs = {
         id: tab.id,
