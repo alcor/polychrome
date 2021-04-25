@@ -28,7 +28,7 @@ body.menu {
 }
 
 div.menu {
-  background:white;
+  background:var(--toolbar-color);
   padding: 8px 0;
   box-shadow: 2px 1px 4px rgba(0,0,0,0.2);
   width:auto;
@@ -245,7 +245,7 @@ div.menu > div:hover {
 }
 
 .tab {
-  transition: background-color 100ms, width 100ms ease-out;
+  transition: width 130ms ease-out;
   min-width:38px;
   box-sizing: border-box;
 }
@@ -400,13 +400,25 @@ div.menu > div:hover {
   * {
     --background-color: black;
     --text-color: white;
-    --highlight-color:#2d2d2d;
-    --hover-color: #333;
+    --highlight-color:rgba(255,255,255,0.2);
+    --hover-color: rgba(255,255,255,0.2);
     --toolbar-color:#2d2d2d;
   }
+
+  .tab:hover {
+    background-color:var(--accent-highlight, rgba(255,255,255,0.3));
+  }
+  
   .tab.highlighted {
     background-color:var(--accent-dark, hsla(220, 78%, 76%,0.5));
-    
+  }
+
+  .group {
+    border-color: var(--accent-dark, transparent);
+  }
+
+  .group .header .title {
+    color: var(--accent-light)
   }
 }
 
@@ -416,7 +428,7 @@ div.menu > div:hover {
   --accent-dark: hsl(214, 4%, 39%);
 }
 .blue {
-  --accent-light: hsl(220, 78%, 76%);
+  --accent-light: hsl(225, 6%, 14%);
   --accent-highlight: hsla(220, 78%, 76%,0.3);
   --accent-dark: hsl(220, 73%, 55%);
 }
