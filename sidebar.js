@@ -1,3 +1,13 @@
+
+
+let v = (nameObject) => { for(let varName in nameObject) { return varName; } }
+
+
+// Stored Values
+var autofocus = getDefault(v({autofocus}), true);
+var preserveGroups = getDefault(v({preserveGroups}), true);
+
+
 setTimeout(() => location.reload(), 60 * 1000 * 1000)
 
 var myWindowId = undefined;
@@ -32,7 +42,9 @@ window.addEventListener("focus", function(event) {
 var focusTimeout = undefined;
 if (navigator.platform == 'MacIntel') {
   document.addEventListener('mouseenter', e => {
-    if (myWindowId) chrome.windows.update(myWindowId, { "focused": true })
+    if (myWindowId && autofocus) {
+      chrome.windows.update(myWindowId, { "focused": true })
+    }
     focusTimeout = setTimeout(e => {
       //console.log("timeout")
       },1000)
@@ -59,7 +71,7 @@ function sortByDomain(a,b) {
   return (a.url > b.url) ? 1 : ((b.url > a.url) ? -1 : 0)
 }
 
-function sortTabs() {
+function sortTabs(type) {
   chrome.windows.getAll({populate:true, windowTypes:['normal']}, w => {
     windows = w;
     console.log(w)
@@ -76,6 +88,17 @@ function sortTabs() {
 //
 // Utility functions
 //
+
+function getDefault(key, fallback) {
+  let value = localStorage.getItem(key);
+  if (value == undefined) return fallback;
+  return JSON.parse(value);
+}
+
+function setDefault(key, value) {
+  localStorage.setItem(key, JSON.stringify(value));
+}
+
 
 var titleReplacements = {
   "www.google.com": /(.*) - Google Search/
@@ -185,11 +208,18 @@ document.addEventListener("drop", function( event ) {
 
 window.onkeydown = function(event) {
 
-  if (event.metaKey && event.keyCode == 84) { 
+  if (event.metaKey && event.keyCode == 84) { // C-T
+    chrome.windows.update(lastWindowId, { "focused": true })
+    .then((wind) => {
+      chrome.tabs.create({index:0, windowId:lastWindowId})
+      .then ((tab) => {
+        
+      })
+    })  
     event.preventDefault(); 
-  } else if(event.metaKey && event.keyCode == 83) { 
+  } else if(event.metaKey && event.keyCode == 83) {  // C-S
     event.preventDefault(); 
-  } else if(event.metaKey && event.keyCode == 82) { 
+  } else if(event.metaKey && event.keyCode == 82) {  // C-R
     let options = event.shiftKey ? {} : undefined;
     chrome.tabs.query({highlighted:true, windowId: lastWindowId})
     .then((tabs) => {
@@ -244,6 +274,7 @@ function updateTabs() {
     var groupEl = undefined;
     chrome.windows.getAll({populate:true, windowTypes:['normal']}, w => {
       windows = w;
+      if (!lastWindowId) lastWindowId = windows[0].id;
       m.redraw();
     });
     return;
@@ -271,7 +302,7 @@ chrome.tabGroups.onUpdated.addListener(updateGroup);
 chrome.windows.onCreated.addListener(updateTabs);
 chrome.windows.onRemoved.addListener(updateTabs);
 chrome.windows.onFocusChanged.addListener((w) => {
-  if (w != myWindowId) {
+  if (w != myWindowId && w > 0) {
     lastWindowId = w;
     updateTabs();
   }
@@ -288,35 +319,47 @@ updateTabs()
 
 var WindowManager = function(vnode) {
   return {
-
     view: function(vnode) {
       return [
         m(Toolbar),
         m(WindowList, {windows:windows})
-      ]  
+      ] 
     }
   }
 }
 
+function toggle(v) {
+  v = !v;
+  setDefault(v);
+}
 var Toolbar = function(vnode) {
   return {
     view: function() {
       return m("div.toolbar", 
         m(Search),
         myWindowId ? undefined : m('div.button#popout', {onclick:popOutSidebar}, m('span.material-icons','open_in_new')),
-        m('div.button', {onclick:sortTabs},
+        m('div.button',
           m('span.material-icons','sort'),
           m('div.sort.menu',
-            m('div', "Sort by Domain"),
-            m('div', "Sort by Name"),
-            m('div', "Sort by Date")
+            m('div.disabled', {onclick:() => { sortTabs('domain') }}, "Sort by Domain"),
+            m('div.disabled', {onclick:() => { sortTabs('name') }}, "Sort by Name"),
+            m('div.disabled', {onclick:() => { sortTabs('date') }}, "Sort by Date"),
+            m('div.disabled', {onclick:() => { sortTabs('type.disabled') }}, "Sort by Type"),
+            m('hr'),
+            m('div.disabled', {onclick:() => { sortTabs('dedup') }}, "Remove Duplicates"),
+            m('hr'),
+            m('div', {class: preserveGroups,
+              onclick: () => setDefault(v({preserveGroups}), preserveGroups = !preserveGroups)
+            }, "Preserve Groups")
           )),
         m('div.button', {onclick:showMenu},
           m('span.material-icons','more_vert'),
           m('div.sort.menu',
-            m('div', "Aggressive autofocus"),
-            m('div', "Reload"),
-            m('div', "Something something windowmanagement")
+            m('div', {class: autofocus, title:"(Mac only), focuses this window when the mouse enters, to reduce the need to click multiple times.",
+             onclick: () => setDefault(v({autofocus}), autofocus = !autofocus)
+            }, "Aggressive autofocus"),
+            m('hr'),
+            m('div', {onclick: () => window.location.reload()},"Refresh")
           )
         )
       )   
@@ -338,8 +381,9 @@ var Search = function(vnode) {
 var WindowList = function(vnode) {
   return {
     view: function(vnode) {
-      if (!vnode.attrs.windows.length) return ""
+      if (!vnode.attrs.windows.length) return "";
       return vnode.attrs.windows.map(w => { return m(Window, {window:w, key:w.id})})
+      
     }
   }
 }
@@ -420,6 +464,17 @@ var TabGroup = function(vnode) {
     console.log(this, title)
     if (title) chrome.tabGroups.update(this.id, {title: title})
   }
+  function newTab(e) {
+    console.log("new tab in", this, e)
+    e.preventDefault();
+    e.stopPropagation();
+    chrome.windows.update(lastWindowId, { "focused": true })
+    .then((win) => 
+      chrome.tabs.create({index:0, windowId:win.id})
+    ).then ((tab) => 
+      chrome.tabs.group({groupId:this.id, tabIds:[tab.id]})
+    )
+  }
   return {
     view: function(vnode) {
       let group = vnode.attrs.group;
@@ -464,7 +519,17 @@ var TabGroup = function(vnode) {
       })
 
       return m('div.group', {class:classList.join(" ")},
-        m('div.header', attrs, m('div.title', title)),
+        m('div.header', attrs,
+          m('div.title', title),
+          m('div.actions',
+            m('div.action.newtab', {title:'New tab in group', onclick:newTab.bind(group)}, m('span.material-icons',"add_circle")),
+            // m('div.action.ungroup', {title:'Ungroup'}, m('span.material-icons',"layers_clear")),
+            // m('div.action.popout', {title:'Open in new window'}, m('span.material-icons',"open_in_new")),
+            // m('div.action.more', {title:'Menu'}, m('span.material-icons',"more_vert")),
+            // m('div.action.archive', {title:'Archive'}, m('span.material-icons',"save_alt")),
+            // m('div.action.close', {title:'Close'}, m('span.material-icons',"close"))
+          )
+        ),
         children
       )
        
@@ -557,7 +622,9 @@ var Tab = function(vnode) {
 
       return m('div.tab', attrs,
         m('div.loader'),
-        m('div.close', {onclick: close.bind(tab)}, '×'),
+        m('div.actions',
+          m('div.action.close', {onclick: close.bind(tab)}, m('span.material-icons',"close"))
+        ),
         m('div.title', title)
       )
     }

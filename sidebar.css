@@ -3,9 +3,8 @@
   font-weight:400;
   --background-color: white;
   --text-color: black;  
-  --highlight-color:#f8f8f8;
+  --highlight-color:rgba(0,0,0,0.1);
   --hover-color: #f8f8f8;
-  
   --toolbar-color:#fafafa;
 }
 
@@ -14,11 +13,6 @@ body {
   color: var(--text-color);
   margin:0;
   font-size:11px
-}
-
-.window.focused,
-.window:hover {
-
 }
 
 body.menu {
@@ -46,8 +40,20 @@ div.button:hover div.menu {
 
 div.menu > div {
   text-overflow:ellipsis; 
-  padding: 6px 12px;
+  padding: 6px 12px 6px 16px;
+}
+
+div.menu > div.disabled {
   text-decoration: line-through;
+  pointer-events: none;
+}
+
+div.menu > div.true:before {
+  content:'✓';
+  color:var(--text-color);
+  display:block;
+  float:left;
+  margin-left:-12px;
 }
 
 div.menu > div:hover {
@@ -111,9 +117,27 @@ div.menu > div:hover {
   width: 100%;
   height:24px;
   box-sizing:border-box;
+  position:sticky;
+  z-index: 1;
 }
+
+.group .header {
+  background:var(--background-color);
+  top:calc(52px);
+}
+
+.group .header {
+  display:flex;
+}
+
+.group.no-group .header .actions,
+.group .header:not(:hover) .actions {
+  opacity:0.0;
+  pointer-events:none;
+}
+
 .tab, .group > .header > .title, .window > .title {
-  padding:0 16px 0 32px;
+  padding:0 0px 0 32px;
   white-space: nowrap;
   text-overflow: ellipsis;
   cursor:pointer;
@@ -132,13 +156,12 @@ div.menu > div:hover {
   line-height:24px;
 }
 
-.tab.query {
+.group:not(.collapsed) .tab.query {
   margin-top:8px;
   background-image:none !important;
   font-weight: bold !important;
   padding-left:8px;
 }
-
 
 .tab.query .title {
   font-weight:600;
@@ -169,8 +192,7 @@ div.menu > div:hover {
 }
 
 .group {
-  margin:0 0px 8px 16px;;
-  xoutline: 1px solid red;
+  margin:0 0px 8px 16px;
   border-left:3px solid transparent;
   border-color: var(--accent-light, transparent);
   display:flex;
@@ -189,10 +211,8 @@ div.menu > div:hover {
   display:none;
 }
 .group.collapsed .tab .title,
-.group.collapsed .tab .close {
+.group.collapsed .tab .actions {
   display:none;
-}
-.group.collapsed {
 }
 
 .group.collapsed > .header > .title {
@@ -204,37 +224,58 @@ div.menu > div:hover {
   width:0;
 }
 
-.close {
-  width:24px;
-  height:24px;
-  line-height:24px;
-  text-align:center;
-  font-size:16px;
-  float:right;
-  right:0;
-  margin-right:0;
-  margin-left:-10px;
-  transition: opacity 100ms;
-  opacity:0.5;
-  color:var(--text-color);
-  
-  z-index:1;
-  position:absolute;
-}
-
-.close:hover {
+.action:hover {
   background-color:var(--text-color);
   color:var(--background-color);
   opacity:1.0;
+
+  transition: opacity 100ms;
 }
-.tab:not(:hover) .close {
+
+.action {
+  width:24px;
+  height:24px;
+  border-radius:1px;
+  text-align:center;
+}
+
+.actions {
+  /* outline:1px solid red; */
+  float:right; 
+  right:0;
+  margin-right:0;
+  display:flex;
+  cursor:default;
+  opacity:1.0;
+
+  transition: opacity 218ms;
+}
+.action span {
+  font-size: 16px;
+  line-height:24px;
+  opacity:0.5
+}
+
+.action:hover span {
+  opacity:1.0;
+}
+
+.tab:not(:hover) .actions {
   opacity:0.0;
+}
+
+.tab:not(:hover) .actions {
+  margin-left:-16px;
 }
 
 .window {
   padding-bottom:1em;
-  border-bottom:1px solid rgba(0,0,0,0.1);
   margin-bottom:1em;
+}
+
+.window:not(:last-child) {
+  border-bottom:1px solid rgba(0,0,0,0.1);
+
 }
 .window > .title {
   padding-left:.3em;
@@ -249,6 +290,7 @@ div.menu > div:hover {
   min-width:38px;
   box-sizing: border-box;
 }
+
 .tab.active {
   background-color:var(--hover-color);
   color:var(--text-color);
@@ -262,25 +304,6 @@ div.menu > div:hover {
 .collapsed .droptarget:not(.header) {
   border-right: 2px solid var(--text-color);
   border-bottom:none;
-}
-/* .droptarget::after {
-  width:100%;
-  height:2px;
-  background-color:red;
-  float:left;
-  left:24px;
-  content:"";
-  display:block;
-  position:absolute;
-} */
-
-.insertionpoint {
-  width:100%;
-  height:2px;
-  color:rgb(255, 102, 0);
-}
-.window.focused .tab.active {
-  /* background-color:var(--highlight-color); */
 }
 
 
@@ -315,7 +338,9 @@ div.menu > div:hover {
   margin:0 2px
 }
 
-.tab.pinned .close { display:none;}
+.tab.pinned .actions {
+  display:none;
+}
 
 .tab.dragged {
   opacity:0.3;
@@ -345,7 +370,7 @@ div.menu > div:hover {
 
 .tab.loading:not(.pinned) {
   opacity:0.6;
-  background-position-y: 100px; !important;
+  background-position-y: 100px;
 }
 
 .tab:not(.loading) .loader {
@@ -396,31 +421,6 @@ div.menu > div:hover {
 }
 
 
-@media (prefers-color-scheme: dark) {
-  * {
-    --background-color: black;
-    --text-color: white;
-    --highlight-color:rgba(255,255,255,0.2);
-    --hover-color: rgba(255,255,255,0.2);
-    --toolbar-color:#2d2d2d;
-  }
-
-  .tab:hover {
-    background-color:var(--accent-highlight, rgba(255,255,255,0.3));
-  }
-  
-  .tab.highlighted {
-    background-color:var(--accent-dark, hsla(220, 78%, 76%,0.5));
-  }
-
-  .group {
-    border-color: var(--accent-dark, transparent);
-  }
-
-  .group .header .title {
-    color: var(--accent-light)
-  }
-}
 
 .grey {
   --accent-light: hsl(214, 6%, 76%);
@@ -461,4 +461,43 @@ div.menu > div:hover {
   --accent-light: hsl(191, 67%, 74%);
   --accent-highlight: hsla(191, 67%, 74%,0.3);
   --accent-dark: hsl(186, 42%, 36%);
+}
+
+hr {
+  border:none;
+  border-bottom:1px solid rgba(0,0,0,0.1);
+}
+
+
+/* Dark Mode */
+
+@media (prefers-color-scheme: dark) {
+  * {
+    --background-color: black;
+    --text-color: white;
+    --highlight-color:rgba(255,255,255,0.2);
+    --hover-color: rgba(255,255,255,0.2);
+    --toolbar-color:#2d2d2d;
+  }
+
+  .tab:hover {
+    background-color:var(--accent-highlight, rgba(255,255,255,0.3));
+  }
+  
+  .tab.highlighted {
+    background-color:var(--accent-dark, hsla(220, 78%, 76%,0.5));
+  }
+
+  .group {
+    border-color: var(--accent-dark, transparent);
+  }
+
+  .group .header .title {
+    color: var(--accent-light)
+  }
+  
+  hr {
+    border:none;
+    border-bottom:1px solid rgba(255,255,255,0.3);
+  }
 }
