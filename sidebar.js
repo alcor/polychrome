@@ -161,20 +161,20 @@ document.addEventListener("dragenter", function( event ) {
 document.addEventListener("dragleave", function( event ) {
   event.preventDefault();
   let target = event.target;
-  target = target.closest("[index]");
+  if (target != document.body) target = target.closest("[index]");
   if (!target) return;
   if (target) target.classList.remove("droptarget", true);
 }, false);
 
 document.addEventListener("dragover", function( event ) {
   let target = event.target;
-  target = target.closest("[index]");
+  if (target != document.body) target = target.closest("[index]");
   if (target) event.preventDefault();
 }, false);
 
 document.addEventListener("drop", function( event ) {
   let target = event.target;
-  target = target.closest("[index]");
+  if (target != document.body) target = target.closest("[index]");
   if (target) target.classList.remove("droptarget", true);
 
   draggedTab.classList.remove("dragged");
@@ -182,13 +182,13 @@ document.addEventListener("drop", function( event ) {
   event.preventDefault();
   let dragId = parseInt(draggedTab.getAttribute("id"));
   let dragIndex = parseInt(draggedTab.getAttribute("index"));
-  let dropIndex = parseInt(target.getAttribute("index"));
-  let wid = parseInt(target.getAttribute("wid"));
-  let gid = parseInt(target.getAttribute("gid"));
+  let dropIndex = parseInt(target.getAttribute("index")) || -1;
+  let wid = parseInt(target.getAttribute("wid")) || parseInt(draggedTab.getAttribute("wid"));
+  let gid = parseInt(target.getAttribute("gid")) || -1;
 
   if (dropIndex > dragIndex) dropIndex--;
-  console.log(`move to ${wid} > ${gid} to ${dropIndex} from ${dragIndex}`)
-
+  //console.log(`move to ${wid} > ${gid} to ${dropIndex} from ${dragIndex}`)
+  
   chrome.tabs.query({highlighted:true, windowId:wid}, tabs => {
     var tabIds = tabs.map(tab => tab.id);
 
@@ -595,7 +595,7 @@ var Tab = function(vnode) {
          host = tab.url ? new URL(tab.url).hostname : tab.url;
       }
 
-      let favIconUrl = tab.favIconUrl || favicons[host] || `https://www.google.com/s2/favicons?domain=${host}`
+      let favIconUrl = tab.favIconUrl || favicons[host] || (host && host.length ?`https://www.google.com/s2/favicons?domain=${host}` : undefined)
 
       var classList = [];
       if (tab.pinned) classList.push('pinned')
