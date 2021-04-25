@@ -71,17 +71,33 @@ function searchInput(e) {
 function sortByDomain(a,b) {
   return (a.url > b.url) ? 1 : ((b.url > a.url) ? -1 : 0)
 }
+function sortByTitle(a,b) {
+  return (a.title > b.title) ? 1 : ((b.title > a.title) ? -1 : 0)
+}
 
 function sortTabs(type) {
-  chrome.windows.getAll({populate:true, windowTypes:['normal']}, w => {
-    windows = w;
-    console.log(w)
-    windows.forEach(win => {
-      let tabs = win.tabs
-      tabs.sort(sortByDomain);
-      console.log(tabs.map(t=>t.url))
-      win.tabs.forEach(tab => {
+  chrome.windows.getAll({populate:true, windowTypes:['normal']}, (windows) => {
+    windows.forEach(w => {
+      let tabs = w.tabs
+
+      if (type == 'domain') {
+        tabs.sort(sortByDomain);
+      } else if (type == 'title') {
+        tabs.sort(sortByTitle);
+      } else if (type == 'type') {
+        
+      }
+
+      let orderedIds = [];
+      
+      tabs.forEach((tab) => {
+        if (tab.groupId < 0 && !tab.pinned) {
+          orderedIds.push(tab.id);
+        }
       });
+      console.log(orderedIds)
+      chrome.tabs.move(orderedIds,  {index:-1, windowId:w.id});
+
     })
   });
 } 
@@ -111,6 +127,7 @@ var iconReplacements = {
 
 function titleForTab(tab) {
   if (!tab.url.length) return tab.title;
+
   try {
     url = new URL(tab.url);
   } catch (e) {
@@ -121,6 +138,8 @@ function titleForTab(tab) {
 
   if (replacement) {
     return tab.title.replace(replacement, '$1')
+  } else {
+    return tab.title.split(' - ').splice(-1,1).join(' - ');
   }
 
   return tab.title;
@@ -333,6 +352,11 @@ var WindowManager = function(vnode) {
   }
 }
 
+function discardAllTabs() {
+  windows[0].tabs.forEach( (tab) => {
+    chrome.tabs.discard(tab.id)
+  })
+}
 function toggle(v) {
   v = !v;
   setDefault(v);
@@ -346,12 +370,13 @@ var Toolbar = function(vnode) {
         m('div.button',
           m('span.material-icons','sort'),
           m('div.sort.menu',
-            m('div.disabled', {onclick:() => { sortTabs('domain') }}, "Sort by Domain"),
-            m('div.disabled', {onclick:() => { sortTabs('name') }}, "Sort by Name"),
-            m('div.disabled', {onclick:() => { sortTabs('date') }}, "Sort by Date"),
-            m('div.disabled', {onclick:() => { sortTabs('type.disabled') }}, "Sort by Type"),
+            m('div', {onclick:() => { sortTabs('domain') }}, "Sort by Domain"),
+            m('div', {onclick:() => { sortTabs('type') }}, "Sort by Type"),
+            m('div', {onclick:() => { sortTabs('title') }}, "Sort by Title"),
             m('hr'),
             m('div.disabled', {onclick:() => { sortTabs('dedup') }}, "Remove Duplicates"),
+            m('div', {onclick:() => { discardAllTabs() }}, "Unload all tabs"),
+            m('div.disabled', {onclick:() => { discardAllTabs() }}, "Combine Windows"),
             m('hr'),
             m('div', {class: preserveGroups,
               onclick: () => setDefault(v({preserveGroups}), preserveGroups = !preserveGroups)
