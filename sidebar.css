@@ -284,7 +284,7 @@ div.menu > div:hover {
 
 .tab .actions {
 
-  margin-left:-12px;
+  margin-left:-6px;
   margin-right:0px
 }
 .tab:not(:hover) .actions {
