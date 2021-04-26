@@ -6,7 +6,7 @@ let v = (nameObject) => { for(let varName in nameObject) { return varName; } }
 // Stored Values
 var autofocus = getDefault(v({autofocus}), false);
 var preserveGroups = getDefault(v({preserveGroups}), true);
-
+var simplifyTitles = getDefault(v({simplifyTitles}), true); 
 
 setTimeout(() => location.reload(), 60 * 1000 * 1000)
 
@@ -69,27 +69,50 @@ function searchInput(e) {
 }
   
 function sortByDomain(a,b) {
-  return (a.url > b.url) ? 1 : ((b.url > a.url) ? -1 : 0)
+  return a.reverseHost.localeCompare(b.reverseHost);
 }
 function sortByTitle(a,b) {
-  return (a.title > b.title) ? 1 : ((b.title > a.title) ? -1 : 0)
+  return a.title.localeCompare(b.title);
 }
 
+function typeForTab(tab) {
+  if (/[docs|sheets|slides]\.google\.com/.test(tab.hostname)) {
+    return "Document";
+  }
+  if (/[calendar|mail]\.google\.com/.test(tab.hostname)) {
+    return "App";
+  }
+  if (/.*\.slack\.com/.test(tab.hostname)) {
+    return "Communication";
+  }
+  return "Other"
+}
 function sortTabs(type) {
   chrome.windows.getAll({populate:true, windowTypes:['normal']}, (windows) => {
     windows.forEach(w => {
       let tabs = w.tabs
+      tabs.forEach((tab) => {
+        tab.domain = tab.url
+        try {
+          let hostname =  new URL(tab.url).hostname;
+          tab.hostname = hostname;
+          tab.reverseHost = hostname.split('.').reverse().join('.');;
+        } catch (e) {
+          tab.reverseHost = "zzzz." + tab.url; // lol
+        } 
+        tab.type = typeForTab(tab);
+      });
 
       if (type == 'domain') {
         tabs.sort(sortByDomain);
+        console.log(tabs.map(t=>t.reverseHost))
       } else if (type == 'title') {
         tabs.sort(sortByTitle);
       } else if (type == 'type') {
-        
+        tabs.sort(sortByType); 
       }
 
-      let orderedIds = [];
-      
+      let orderedIds = [];      
       tabs.forEach((tab) => {
         if (tab.groupId < 0 && !tab.pinned) {
           orderedIds.push(tab.id);
@@ -101,6 +124,27 @@ function sortTabs(type) {
     })
   });
 } 
+
+function removeDuplicates() {
+  chrome.windows.getAll({populate:true, windowTypes:['normal']})
+  .then((windows) => {
+    var idsToRemove = []
+    var knownURLs = {};
+    windows.forEach(w => {
+      w.tabs.forEach((tab) => {
+        if (!knownURLs[tab.url]) {
+          knownURLs[tab.url] = tab.id;
+        } else {
+          idsToRemove.push(tab.id)         
+        }
+      })
+      chrome.tabs.remove(idsToRemove);
+    })
+  })
+}
+
+
+
 
 //
 // Utility functions
@@ -138,8 +182,10 @@ function titleForTab(tab) {
 
   if (replacement) {
     return tab.title.replace(replacement, '$1')
-  } else {
-    return tab.title.split(' - ').splice(-1,1).join(' - ');
+  } else if (simplifyTitles) {
+    let components = tab.title.split(/ [-–—•|] /g);
+    if (components.length > 1) components.pop();
+    return components.join(' - ');
   }
 
   return tab.title;
@@ -371,10 +417,10 @@ var Toolbar = function(vnode) {
           m('span.material-icons','sort'),
           m('div.sort.menu',
             m('div', {onclick:() => { sortTabs('domain') }}, "Sort by Domain"),
-            m('div', {onclick:() => { sortTabs('type') }}, "Sort by Type"),
+            m('div.disabled', {onclick:() => { sortTabs('type') }}, "Sort by Type"),
             m('div', {onclick:() => { sortTabs('title') }}, "Sort by Title"),
             m('hr'),
-            m('div.disabled', {onclick:() => { sortTabs('dedup') }}, "Remove Duplicates"),
+            m('div', {onclick:() => { removeDuplicates() }}, "Remove Duplicates"),
             m('div', {onclick:() => { discardAllTabs() }}, "Unload all tabs"),
             m('div.disabled', {onclick:() => { discardAllTabs() }}, "Combine Windows"),
             m('hr'),
@@ -647,7 +693,7 @@ var Tab = function(vnode) {
         wid: tab.windowId,
         gid: tab.groupId,
         index: tab.index + 1,
-        title:title,
+        title:tab.title,
         class:classList.join(" "),
       }
       if (favIconUrl) {
