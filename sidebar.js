@@ -563,7 +563,10 @@ var TabGroup = function(vnode) {
       }
 
       let title = group.info ? (group.info.title || (group.info.color)) : "Ungrouped";
-      if (group.id == -2) title = "Pinned"
+      if (group.id == -2) {
+        title = "Pinned";
+        classList.push("pinned");
+      }
       attrs.wid = group.tabs[0].windowId
       attrs.gid = group.id
       attrs.index = group.tabs[0].index

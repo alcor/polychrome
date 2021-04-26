@@ -4,6 +4,7 @@
   --background-color: white;
   --text-color: black;  
   --highlight-color:rgba(0,0,0,0.1);
+  --field-color:rgba(0,0,0,0.05);
   --hover-color: #f8f8f8;
   --toolbar-color:#fafafa;
 }
@@ -61,18 +62,18 @@ div.menu > div:hover {
   color: var(--text-color);
 }
 
-
 #search {
   color:var(--text-color);
   opacity:1.0;
-  border-radius:4px;
+  border-radius:99px;
   box-sizing:border-box;
   border:2px solid transparent;
-
+  background-color: var(--field-color);
 }
 #search:focus {
   outline:none;
-  border:2px solid var(--text-color);
+  background-color: var(--background-color);
+  border:2px solid var(--highlight-color);
 
 }
 .toolbar {
@@ -81,9 +82,10 @@ div.menu > div:hover {
   z-index:10;
   display:flex;
   padding-top:11px;
-  height:41px;
+  height:50px;
   background-color:var(--toolbar-color);
-  box-shadow:0 1px 1px rgba(0,0,0,0.4);
+  box-shadow:0 1px 1px rgba(0,0,0,0.2);
+  box-sizing:border-box
 }
 
 .search {
@@ -113,8 +115,9 @@ div.menu > div:hover {
 
 
 .search input {
-  padding:6px 10px;
-  margin:4px 0 4px 16px;
+  height:30px;
+  padding:0 0 0 12px;
+  margin:4px 0 4px 12px;
   border:none;
   background:transparent;
   box-sizing: border-box;
@@ -142,14 +145,23 @@ div.menu > div:hover {
   pointer-events:none;
 }
 
+.group {
+  margin:0 0px 4px 4px;
+  padding:0 0 0 4px;
+  border-left:4px solid transparent;
+  border-color: var(--accent-light, transparent);
+  display:flex;
+  flex-wrap: wrap;
+}
+
 .tab, .group > .header > .title, .window > .title {
-  padding:0 0px 0 32px;
+  padding:0 0px 0 44px;
   white-space: nowrap;
   text-overflow: ellipsis;
   cursor:pointer;
   /* overflow: hidden; */
   color:rgba(0,0,0,0,0.8);
-  background: 8px 4px / 16px no-repeat;
+  background: 16px 4px / 16px no-repeat;
   height:24px;
   box-sizing: border-box;
   user-select: none;
@@ -166,7 +178,7 @@ div.menu > div:hover {
   margin-top:8px;
   background-image:none !important;
   font-weight: bold !important;
-  padding-left:8px;
+  padding-left:18px;
 }
 
 .tab.query .title {
@@ -188,22 +200,16 @@ div.menu > div:hover {
 
 .group > .header > .title {
   text-transform: uppercase;
-  letter-spacing: 1px;;
+  letter-spacing: 1px;
   font-size:smaller;
   padding-top:0;
-  padding-left:8px;
-  font-weight:700;
+  padding-left:16px;
+  font-weight:600;
   width:100%;
   color: var(--accent-dark, --text-color)
 }
 
-.group {
-  margin:0 0px 8px 16px;
-  border-left:3px solid transparent;
-  border-color: var(--accent-light, transparent);
-  display:flex;
-  flex-wrap: wrap;
-}
+
 
 .group.no-group {
   margin-top:0px;
@@ -247,6 +253,12 @@ div.menu > div:hover {
   height:24px;
   border-radius:1px;
   text-align:center;
+  transition: width 200ms;
+}
+
+
+.header:not(:hover) .action {
+  width:12px;
 }
 
 .actions {
@@ -258,7 +270,7 @@ div.menu > div:hover {
   cursor:default;
   opacity:1.0;
 
-  transition: opacity 218ms;
+  transition: opacity 218ms, margin 218ms;
 }
 .action span {
   font-size: 16px;
@@ -270,12 +282,14 @@ div.menu > div:hover {
   opacity:1.0;
 }
 
+.tab .actions {
+
+  margin-left:-12px;
+  margin-right:0px
+}
 .tab:not(:hover) .actions {
   opacity:0.0;
-}
-
-.tab:not(:hover) .actions {
-  margin-left:-16px;
+  margin-right:-2px;
 }
 
 .window {
@@ -324,7 +338,6 @@ div.menu > div:hover {
 .tab.pinned {
   width:38px;
   height:36px;
-  float:left;
   background-size:24px;
   overflow:hidden;
   background: 8px 8px / 24px no-repeat;
@@ -332,6 +345,12 @@ div.menu > div:hover {
   margin-left:0px;
   margin-bottom:10px;
   border-radius:6px;
+}
+.group.pinned {
+  padding-left:12px;
+  padding-right:12px;
+  display:flex;
+  flex-wrap: wrap;
 }
 
 .tab {
@@ -523,6 +542,7 @@ hr {
     --highlight-color:rgba(255,255,255,0.2);
     --hover-color: rgba(255,255,255,0.2);
     --toolbar-color:#2d2d2d;
+    --field-color:rgba(255,255,255,0.05);
   }
 
   .tab:hover {
