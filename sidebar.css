@@ -189,7 +189,7 @@ div.menu > div:hover {
   pointer-events: none;
 }
 
-.group:not(.collapsed) .tab.indented {
+.group:not(.collapsed):not(.pinned) .tab.indented {
   margin-left:24px;
 }
 
