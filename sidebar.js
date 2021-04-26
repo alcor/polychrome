@@ -296,21 +296,20 @@ window.onkeydown = function(event) {
       })
     });
     event.preventDefault(); 
-  } else if (event.key == "Backspace" || 
-      (event.metaKey && event.keyCode == 87)) { 
-
-    if (event.target != document.body) return;
-    console.log("Hey! Ctrl+W event captured!", event);
+  } else if ((event.key == "Backspace" && event.target == document.body)
+   || (event.metaKey && event.keyCode == 87)) { 
     event.preventDefault();     
-    chrome.tabs.query({highlighted:true, windowId: lastWindowId})
-    .then((tabs) => {
-      console.log(tabs)
-      chrome.tabs.remove(tabs.map(t => t.id))
-    });
+    closeTab();
     return false;
   }
 }
-
+function closeTab() {
+  chrome.tabs.query({highlighted:true, windowId: lastWindowId})
+  .then((tabs) => {
+    console.log(tabs)
+    chrome.tabs.remove(tabs.map(t => t.id))
+  });
+}
 function popOutSidebar(id) {
   chrome.windows.create({
     url: chrome.runtime.getURL("sidebar.html"),
