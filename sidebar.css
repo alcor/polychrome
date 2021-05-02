@@ -10,6 +10,7 @@
   --field-color: rgba(0,0,0,0.05);
   --hover-color: #f8f8f8;
   --toolbar-color: #fafafa;
+  
 }
 
 body {
@@ -66,7 +67,7 @@ input#search {
 input#search:focus {
   outline: none;
   background-color: var(--background-color);
-  border: 2px solid Highlight;
+  border: 2px solid hsla(220, 78%, 76%,0.5);;
   padding: 0 0 0 11px;
 }
 
@@ -173,8 +174,9 @@ div.button:hover div.menu {
   flex: 1 0 0;
   justify-content: end;
   flex-direction: column;
-  margin-bottom: 8px;
+  margin-bottom: 0px;
   padding-top: 8px;
+  border-top:1px solid var(--stroke-color);
 }
 
 
@@ -531,7 +533,7 @@ div.button:hover div.menu {
 }
 
 .window.frontmost .tab.highlighted {
-  background-color: var(--accent-light, Highlight);
+  background-color: var(--accent-light, hsla(220, 78%, 76%,0.3));
 }
 
 @keyframes pulse {
@@ -632,6 +634,8 @@ hr {
 	  --hover-color: rgba(255,255,255,0.2);
 	  --toolbar-color: #2d2d2d;
 	  --field-color: rgba(255,255,255,0.05);
+
+  --stroke-color: rgba(255,255,255,0.2);
 	}
 	
 	.tab:hover {
