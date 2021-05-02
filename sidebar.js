@@ -19,6 +19,7 @@ chrome.tabs.getCurrent((sidebar) => {
   } else {
     isMenuMode = true;
     document.body.classList.add("menu")
+    document.body.style.height = window.screen.availHeight;
   }
 });
 
@@ -126,6 +127,10 @@ function sortTabs(type) {
 } 
 
 function removeDuplicates() {
+  chrome.runtime.sendMessage('remove-duplicates', (response) => {
+    console.log('received response', response);
+  });
+  return;
   chrome.windows.getAll({populate:true, windowTypes:['normal']})
   .then((windows) => {
     var idsToRemove = []
@@ -162,7 +167,9 @@ function setDefault(key, value) {
 
 
 var titleReplacements = {
-  "www.google.com": /(.*) - Google Search/
+  "www.google.com": /(.*) - Google Search/,
+  "www.amazon.com": /Amazon\.com: (.*)/,
+  "app.slack.com": /Slack \| (.*)/,
 }
 
 var iconReplacements = {
@@ -171,9 +178,10 @@ var iconReplacements = {
 
 function titleForTab(tab) {
   if (!tab.url.length) return tab.title;
+  let url;
 
   try {
-    url = new URL(tab.url);
+     url = new URL(tab.url);
   } catch (e) {
     console.log(`cannot read url "${tab.url}"`, e)
   }
@@ -183,9 +191,9 @@ function titleForTab(tab) {
   if (replacement) {
     return tab.title.replace(replacement, '$1')
   } else if (simplifyTitles) {
-    let components = tab.title.split(/ [-–—•|] /g);
+    let components = tab.title.split(/\s[-–—•|]\s/g);
     if (components.length > 1) components.pop();
-    return components.join(' - ');
+    return components.join(' • ');
   }
 
   return tab.title;
@@ -202,6 +210,7 @@ document.addEventListener("dragstart", function( event ) {
     draggedTab = target
     draggedTab.classList.add("dragged");
 
+    let url = "about:blank";
     var dt = event.dataTransfer;
     dt.effectAllowed = 'all';
     dt.setDragImage(draggedTab, 24,12);
@@ -336,18 +345,16 @@ function showMenu() {
 
 var windows = []
 function updateTabs() {
-  chrome.tabs.query({windowType: 'normal'}, function(tabs) {
-    var b = {}
-    var groupId = undefined;
-    var windowId = -1;
-    var groupEl = undefined;
-    chrome.windows.getAll({populate:true, windowTypes:['normal']}, w => {
-      windows = w;
-      if (!lastWindowId) lastWindowId = windows[0].id;
-      m.redraw();
-    });
-    return;
+  var b = {}
+  var groupId = undefined;
+  var windowId = -1;
+  var groupEl = undefined;
+  chrome.windows.getAll({populate:true, windowTypes:['normal']}, w => {
+    windows = w;
+    if (!lastWindowId) lastWindowId = windows[0].id;
+    m.redraw();
   });
+  return;
 }
 
 function updateGroup(tabGroup) {
@@ -416,12 +423,12 @@ var Toolbar = function(vnode) {
           m('span.material-icons','sort'),
           m('div.sort.menu',
             m('div', {onclick:() => { sortTabs('domain') }}, "Sort by Domain"),
-            m('div.disabled', {onclick:() => { sortTabs('type') }}, "Sort by Type"),
+            //m('div.disabled', {onclick:() => { sortTabs('type') }}, "Sort by Type"),
             m('div', {onclick:() => { sortTabs('title') }}, "Sort by Title"),
             m('hr'),
             m('div', {onclick:() => { removeDuplicates() }}, "Remove Duplicates"),
             m('div', {onclick:() => { discardAllTabs() }}, "Unload all tabs"),
-            m('div.disabled', {onclick:() => { discardAllTabs() }}, "Combine Windows"),
+            //m('div.disabled', {onclick:() => { discardAllTabs() }}, "Combine Windows"),
             m('hr'),
             m('div', {class: preserveGroups,
               onclick: () => setDefault(v({preserveGroups}), preserveGroups = !preserveGroups)
@@ -431,13 +438,36 @@ var Toolbar = function(vnode) {
           m('span.material-icons','more_vert'),
           m('div.sort.menu',
             m('div', {class: autofocus, title:"(Mac only), focuses this window when the mouse enters, to reduce the need to click multiple times.",
-             onclick: () => setDefault(v({autofocus}), autofocus = !autofocus)
+            onclick: () => setDefault(v({autofocus}), autofocus = !autofocus)
             }, "Aggressive autofocus"),
+            m('div', {class: simplifyTitles, title:"Simplify titles",
+            onclick: () => setDefault(v({simplifyTitles}), simplifyTitles = !simplifyTitles)
+            }, "Simplify titles"),
             m('hr'),
             m('div', {onclick: () => window.location.reload()},"Refresh")
           )
         )
       )   
+    }
+  }
+}
+
+var ContextMenu = function(vnode) {
+  return {
+    view: function() {
+      return m("div.menu#context-menu", 
+            m('div', {onclick:() => { sortTabs('domain') }}, "Pin"),
+            // m('div.disabled', {onclick:() => { sortTabs('type') }}, "New Grou"),
+            m('div', {onclick:() => { sortTabs('title') }}, "Sort by Title"),
+            m('hr'),
+            m('div', {onclick:() => { removeDuplicates() }}, "Remove Duplicates"),
+            m('div', {onclick:() => { discardAllTabs() }}, "Unload all tabs"),
+            // m('div.disabled', {onclick:() => { discardAllTabs() }}, "Combine Windows"),
+            m('hr'),
+            m('div', {class: preserveGroups,
+              onclick: () => setDefault(v({preserveGroups}), preserveGroups = !preserveGroups)
+            }, "Preserve Groups")
+          )
     }
   }
 }
@@ -469,8 +499,8 @@ var Window = function(vnode) {
     view: function(vnode) {
       let w = vnode.attrs.window;
       
-      groups = []
-      children = []
+      let groups = []
+      let children = []
       var b = {}
       var currentGroup = undefined;
       var currentGroupId = undefined;
@@ -493,10 +523,10 @@ var Window = function(vnode) {
       }) 
 
       var classList = [];
-      if (w.focused) classList.push('focused');
+      if (w.id == lastWindowId) classList.push('frontmost');
 
       return m('div.window', {class:classList}, [
-          m('div.title', "Window " + w.id),
+          m('div.header', m('div.title', "Window " + w.id)),
           m('div.contents', groups.map((group, i) => m(TabGroup, {group, key:group.id > 0 ? group.id : i})))
       ])
     }
@@ -509,14 +539,13 @@ setTimeout(updateOpeners, 1000)
 
 function updateOpeners() {
   var promises = [];
-  for (tabId in tabOpeners) {
+  for (let tabId in tabOpeners) {
 
     promises.push(chrome.tabs.get(parseInt(tabId))
       .then((tab) => {
         //console.log("Found", tabId)
       })
       .catch((error) => {
-        console.log("Did not find", tabId, tabOpeners[tabId])
         delete tabOpeners[tabId];
     }))
   }
@@ -543,18 +572,115 @@ var TabGroup = function(vnode) {
     chrome.windows.update(lastWindowId, { "focused": true })
     .then((win) => 
       chrome.tabs.create({index:0, windowId:win.id})
-    ).then ((tab) => 
+    ).then ((tab) =>
       chrome.tabs.group({groupId:this.id, tabIds:[tab.id]})
     )
   }
+
+  function popOutGroup(e) {
+    e.stopPropagation();
+    let groupId = this.id;
+
+    chrome.windows.get(this.info.windowId, {})
+    .then(sourceWindow => {      
+      chrome.windows.create({
+        url: "about:blank",
+        type: "normal",
+        width:sourceWindow.width,
+        height:sourceWindow.height,
+        top:sourceWindow.top,
+        left:sourceWindow.left
+      })
+      .then( window => {
+        let extraTab = window.tabs[0].id;
+        chrome.tabGroups.move(this.id,{windowId:window.id, index:0})
+        .then(group => {    
+          chrome.tabs.remove(extraTab)
+        })  
+      })
+    })
+  }
+
+  function showGroupMenu(e) {
+
+  }
+
+
+  
+  var bookmarkRoot = getDefault(v({bookmarkRoot}));
+  let BOOKMARK_FOLDER_TITLE = "Tabs​";
+
+  async function getBookmarkRoot() {
+    if (!bookmarkRoot) {
+      let folder = await chrome.bookmarks.search({title:BOOKMARK_FOLDER_TITLE})
+      console.log("folder", folder)
+      folder = folder[0]
+
+      if (!folder) {
+        folder = await chrome.bookmarks.create({parentId: '1', 'title': BOOKMARK_FOLDER_TITLE});
+      }
+  
+      if (folder.id) {
+        setDefault(v({bookmarkRoot}), bookmarkRoot = folder.id)      
+      }
+    }
+    return bookmarkRoot;
+  }
+
+  
+  let colorEmoji = {
+    grey: "⚪️", blue: "🔵", red: "🔴", yellow: "🟡", green: "🟢", pink: "🟣", purple: "🟣", cyan: "🟢"
+  }
+
+  function archiveGroup(e) {
+    let group = this;
+    e.stopPropagation();
+
+    let title = group.info.title || group.info.color;
+    title = colorEmoji[group.info.color] + " " + title;
+
+    getBookmarkRoot()
+    .then(rootId => {
+      console.log("got id", rootId, group)
+      return chrome.bookmarks.create({parentId: rootId, title: title})
+    })
+    .then((folder) => {
+      let promises = [];
+     
+      promises.push(chrome.bookmarks.create({parentId: folder.id, title: "Open Group", url:chrome.runtime.getURL("?" + folder.id)}))
+      group.tabs.forEach(tab => {
+        promises.push(chrome.bookmarks.create({parentId: folder.id, title: tab.title, url: tab.url}))
+      })
+      return Promise.all(promises);
+    })
+    .then(results => {
+      console.log("results", results)
+
+      //chrome.tabs.remove(this.tabs.map(t => t.id))
+    })
+  }
+
+
+
+  function closeGroup(e) {
+    e.stopPropagation();
+    chrome.tabs.remove(this.tabs.map(t => t.id))
+  }
+
+  function ungroup(e) {
+    e.stopPropagation();
+    chrome.tabs.ungroup(this.tabs.map(t => t.id))
+  }
+
   return {
     view: function(vnode) {
       let group = vnode.attrs.group;
       let attrs = {}
       let classList = [];
+      let collapsed = false; 
       if (group.info && group.id > 0) {
         classList.push(group.info.color);
-        if (group.info.collapsed) classList.push("collapsed");
+        collapsed = group.info.collapsed;
         attrs.onclick = onclick.bind(group)
         attrs.oncontextmenu = oncontextmenu.bind(group)
       } else {
@@ -572,8 +698,9 @@ var TabGroup = function(vnode) {
     
       let children = [];
       let lastTab = {};
+      let openerStack = [];
+
       group.tabs.forEach((tab, i) => {
-        
         let isQuery = tab.url.startsWith("https://www.google.com/search")
         if (isQuery) tab.isQuery = true;
 
@@ -584,28 +711,31 @@ var TabGroup = function(vnode) {
             saveOpeners();
           } 
           if ((opener == lastTab.id && !lastTab.isQuery)
-              || (opener == lastTab.openerTabId && lastTab.indented)) {
+              || (opener == lastTab.openerTabId && lastTab.indent)) {
             
               //console.log(opener, lastTab.id, lastTab.openerTabId, lastTab.isQuery, lastTab.indented, tab.title);
-              tab.indented = true;
+              tab.indent = 2;
           }
         }
 
         lastTab = tab;
         children.push(m(Tab, {tab}))
       })
+      
+      if (collapsed) classList.push("collapsed");
+      let height = collapsed ? 0 : children.length + 1;
 
-      return m('div.group', {class:classList.join(" ")},
+      return m('div.group', {class:classList.join(" "), style:`flex-grow:${height}`},
         m('div.header', attrs,
-          m('div.title', title),
           m('div.actions',
             m('div.action.newtab', {title:'New tab in group', onclick:newTab.bind(group)}, m('span.material-icons',"add_circle")),
-            // m('div.action.disabled.ungroup', {title:'Ungroup'}, m('span.material-icons',"layers_clear")),
-            // m('div.action.disabled.popout', {title:'Open in new window'}, m('span.material-icons',"open_in_new")),
-            m('div.action.disabled.more', {title:'Menu'}, m('span.material-icons',"more_vert")),
-            m('div.action.disabled.archive', {title:'Archive'}, m('span.material-icons',"save_alt")),
-            m('div.action.disabled.close', {title:'Close'}, m('span.material-icons',"close"))
-          )
+             m('div.action.ungroup', {title:'Ungroup', onclick:ungroup.bind(group)}, m('span.material-icons',"layers_clear")),
+            m('div.action.popout', {title:'Open in new window', onclick:popOutGroup.bind(group)}, m('span.material-icons',"open_in_new")),
+            m('div.action.more', {title:'Menu', onclick:showGroupMenu.bind(group)}, m('span.material-icons',"more_vert")),
+            m('div.action.archive', {title:'Archive', onclick:archiveGroup.bind(group)}, m('span.material-icons',"save_alt")),
+            m('div.action.close', {title:'Close', onclick:closeGroup.bind(group)}, m('span.material-icons',"close"))
+          ),
+          m('div.title', title),
         ),
         children
       )
@@ -644,7 +774,7 @@ var Tab = function(vnode) {
         })
       } else {
         chrome.tabs.update(this.id, { 'active': true }, (tab) => { updateTabs() });
-        chrome.windows.update(this.windowId, { "focused": true }, () => {
+        if (this.windowId != lastWindowId) chrome.windows.update(this.windowId, { "focused": true }, () => {
           if (myWindowId) chrome.windows.update(myWindowId, { "focused": true })
         })  
         
@@ -678,8 +808,8 @@ var Tab = function(vnode) {
       if (tab.discarded) classList.push('discarded');
       if (tab.highlighted) classList.push('highlighted');
       if (tab.isQuery) classList.push('query');
-      if (tab.indented) {
-        classList.push('indented');
+      if (tab.indent) {
+        classList.push('indent-' + tab.indent);
       }
 
       let title = titleForTab(tab)
@@ -692,14 +822,12 @@ var Tab = function(vnode) {
 
       let attrs = {
         id: tab.id,
+        opener:tab.openerTabId || tabOpeners[tab.id],
         wid: tab.windowId,
         gid: tab.groupId,
         index: tab.index + 1,
         title:tab.title,
-        class:classList.join(" "),
-      }
-      if (favIconUrl) {
-        attrs.style = `background-image:url(${favIconUrl})`
+        class:classList.join(" ")
       }
       attrs.onclick = onclick.bind(tab)
       attrs.draggable = true;
@@ -710,8 +838,20 @@ var Tab = function(vnode) {
         m('div.actions',
           m('div.action.close', {onclick: close.bind(tab)}, m('span.material-icons',"close"))
         ),
+        m('img.icon', {src: favIconUrl}),
         m('div.title', title)
       )
     }
   }
 }
+
+
+chrome.runtime.onMessage.addListener(
+  function(request, sender, sendResponse) {
+    console.log(sender.tab ?
+                "from a content script:" + sender.tab.url :
+                "from the extension");
+    if (request.greeting == "hello")
+      sendResponse({farewell: "goodbye"});
+  }
+);

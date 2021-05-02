@@ -2,25 +2,39 @@
   "name": "Astrolabe",
   "short_name": "Astrolabe",
   "description": "",
-  "version": "0.5",
+  "version": "0.6",
   "icons": { "128": "img/astrolabe.png" },
   "incognito": "split",
   "chrome_url_overrides": {
   },
-  "background.service_worker": {
-    "scripts": ["background.js"],
-    "persistent": false
+  "background": {
+    "service_worker": "background.js"
   },
   "action": {
-    "default_icon": "img/astrolabe.png",
-    "default_title": "Restore Tabs",
+    "default_icon": "img/tabs.png",
+    "default_title": "Tab Manager",
     "default_popup": "sidebar.html"
   },
+  "commands": {
+    "toggle-feature-foo": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+A",
+        "mac": "Command+Shift+A"
+      },
+      "description": "Activate in window"
+    },
+    "_execute_action": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+L",
+        "mac": "Command+Shift+L"
+      }
+    }
+  },
   "permissions": [
-    "storage", "bookmarks", "history", "tabs", "tabGroups", "nativeMessaging"
+    "tabs", "tabGroups", "storage", "bookmarks", "history" 
   ],
-  "host_permissions": [
-    //"chrome://favicon/"
-  ],
+  // "host_permissions": [
+  //   "chrome://favicon/"
+  // ],
   "manifest_version": 3
 }
