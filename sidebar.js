@@ -28,6 +28,7 @@ document.addEventListener('DOMContentLoaded', function() {
   m.mount(root, WindowManager)
   var searchEl = document.getElementById("search");
   searchEl.oninput = searchInput;
+  searchEl.onkeypress = searchKey;
   searchEl.focus();
   //handleInput();
 })
@@ -59,14 +60,27 @@ if (navigator.platform == 'MacIntel') {
 var activeQuery = undefined;
 function searchInput(e) {
   if (!e) return;
-  if (e.key == "Escape" && isMenuMode) {
-    window.close();
-    return;
-  }
+
 
   var query = e ? e.target.value : undefined;
   activeQuery = query;
   m.redraw();
+}
+
+function searchKey(e) {
+  console.log("e",e)
+  if (e.key == "Escape" && isMenuMode) {
+    window.close();
+    return;
+  }
+  if (e.key == "Enter") {
+    let tab = document.getElementsByClassName("tab")[0];
+    let id = parseInt(tab.getAttribute('id'))
+    let wid =  parseInt(tab.getAttribute('wid'))
+    focusTab(id, wid, true);
+    e.target.value = "";
+    return;
+  }
 }
   
 function sortByDomain(a,b) {
@@ -856,6 +870,13 @@ let favicons = {
   "chrome": "./img/newtab.png"
 }
 
+function focusTab(id, wid, focusTheWindow) {
+  chrome.tabs.update(id, { 'active': true });
+  if (wid != lastWindowId || focusTheWindow) chrome.windows.update(wid, { "focused": true }, () => {
+    if (myWindowId && !focusTheWindow) chrome.windows.update(myWindowId, { "focused": true })
+  })
+}
+
 var Tab = function(vnode) {
   function onclick(e) {
       if (e.metaKey) {
@@ -879,12 +900,7 @@ var Tab = function(vnode) {
 
         })
       } else {
-        chrome.tabs.update(this.id, { 'active': true }, (tab) => { updateTabs() });
-        if (this.windowId != lastWindowId) chrome.windows.update(this.windowId, { "focused": true }, () => {
-          if (myWindowId) chrome.windows.update(myWindowId, { "focused": true })
-        })  
-        
-      
+        focusTab(this.id, this.windowId)      
     }
   }
   function close(e) {
@@ -922,6 +938,7 @@ var Tab = function(vnode) {
       if (activeQuery) {
         if (!tab.title.toLowerCase().includes(activeQuery)) {
           classList.push('filtered');
+          return undefined;
         }
       }
       
