@@ -127,7 +127,7 @@ function sortTabs(type) {
 } 
 
 function removeDuplicates() {
-  chrome.runtime.sendMessage('remove-duplicates', (response) => {
+  chrome.runtime.sendMessage('removeDuplicates', (response) => {
     console.log('received response', response);
   });
   return;
@@ -203,17 +203,17 @@ function titleForTab(tab) {
 // Drag and Drop
 //
 
-var draggedTab = undefined;
+var draggedItem = undefined;
 document.addEventListener("dragstart", function( event ) {
     let target = event.target;
     target = target.closest("[index]");
-    draggedTab = target
-    draggedTab.classList.add("dragged");
+    draggedItem = target
+    draggedItem.classList.add("dragged");
 
     let url = "about:blank";
     var dt = event.dataTransfer;
     dt.effectAllowed = 'all';
-    dt.setDragImage(draggedTab, 24,12);
+    dt.setDragImage(draggedItem, 24,12);
     dt.setData("text/uri-list", url);
     dt.setData("text/plain", url);
   })
@@ -224,12 +224,13 @@ document.addEventListener("dragenter", function( event ) {
   target = target.closest('[index]');  
   if (!target) return;
 
-  let dragIndex = parseInt(draggedTab.getAttribute("index"));
+  let dragIndex = parseInt(draggedItem.getAttribute("index"));
   let dropIndex = parseInt(target.getAttribute("index"));
   
-  if (dropIndex == dragIndex - 1) return; // TODO: Make sure groups aren't different
-  if (!target || target == draggedTab) return;
+  console.log("target", target)
+  if (!target || target == draggedItem) return;
   if (target) target.classList.add("droptarget", true);
+  console.log("target2", target)
 }, false);
 
 document.addEventListener("dragleave", function( event ) {
@@ -237,49 +238,81 @@ document.addEventListener("dragleave", function( event ) {
   let target = event.target;
   if (target != document.body) target = target.closest("[index]");
   if (!target) return;
-  if (target) target.classList.remove("droptarget", true);
+  console.log("leave", target)
+  if (target) {
+    target.classList.remove("droptarget", true);
+    target.classList.remove("after", true);
+  }
 }, false);
 
 document.addEventListener("dragover", function( event ) {
   let target = event.target;
   if (target != document.body) target = target.closest("[index]");
-  if (target) event.preventDefault();
+  if (target) {
+    event.preventDefault();
+    let bottomHalf = event.offsetY >= target.clientHeight / 2;
+    target.classList.toggle("after", bottomHalf);
+
+    let dropIndex = parseInt(target.getAttribute("index")) || -1;
+    //console.log("dropping on ", bottomHalf, event.offsetY);
+
+  }
 }, false);
 
 document.addEventListener("drop", function( event ) {
   let target = event.target;
   if (target != document.body) target = target.closest("[index]");
-  if (target) target.classList.remove("droptarget", true);
 
-  draggedTab.classList.remove("dragged");
-  if (!target || target == draggedTab) return;
+
+  let after = target.classList.contains("after");
+  if (target) {
+    target.classList.remove("droptarget", true);
+    target.classList.remove("after", true);
+  }
+
+  draggedItem.classList.remove("dragged");
+  if (!target || target == draggedItem) return;
   event.preventDefault();
-  let dragId = parseInt(draggedTab.getAttribute("id"));
-  let dragIndex = parseInt(draggedTab.getAttribute("index"));
-  let dropIndex = parseInt(target.getAttribute("index")) || -1;
-  let wid = parseInt(target.getAttribute("wid")) || parseInt(draggedTab.getAttribute("wid"));
-  let gid = parseInt(target.getAttribute("gid")) || -1;
 
-  if (dropIndex > dragIndex) dropIndex--;
-  //console.log(`move to ${wid} > ${gid} to ${dropIndex} from ${dragIndex}`)
+  console.log("dragging", draggedItem, target)
+  let dragId = parseInt(draggedItem.getAttribute("id"));
+  let dragIndex = parseInt(draggedItem.getAttribute("index"));
+  let dropIndex = target.getAttribute("index") ? parseInt(target.getAttribute("index")) : -1;
+  let dropWid = parseInt(target.getAttribute("wid")) || parseInt(draggedItem.getAttribute("wid"));
+  let dragGid = parseInt(draggedItem.getAttribute("gid")) || -1;
+  let dropGid = parseInt(target.getAttribute("gid")) || -1;
+  let groupDrag = draggedItem.classList.contains("header");
 
-  chrome.tabs.query({highlighted:true, windowId:wid}, tabs => {
-    var tabIds = tabs.map(tab => tab.id);
 
-    if (!tabIds.includes(dragId)) tabIds = [dragId];
-    chrome.tabs.move(tabIds, {index:dropIndex, windowId:wid}, () => {
-      if (gid == -1) {
-        chrome.tabs.ungroup(tabIds)
-      } else {
-        chrome.tabs.group({groupId:gid, tabIds:tabIds})
-      }
+  if (after) dropIndex++;
+  console.log(`move from ${dragIndex} to ${dropIndex}  in w:${dropWid} > g:${dropGid}`)
+if (dropIndex > dragIndex) dropIndex--;
+  console.log(`move from ${dragIndex} to ${dropIndex}  in w:${dropWid} > g:${dropGid}`)
+
+
+  if (groupDrag) {
+    chrome.tabGroups.move(dragGid, {index:dropIndex, windowId:dropWid})
+    
+  } else {
+    chrome.tabs.query({highlighted:true, windowId:dropWid})
+    .then(tabs => {
+      var tabIds = tabs.map(tab => tab.id);
+      if (!tabIds.includes(dragId)) tabIds = [dragId];
+      chrome.tabs.move(tabIds, {index:dropIndex, windowId:dropWid}, () => {
+        if (dropGid == -1) {
+          chrome.tabs.ungroup(tabIds)
+        } else {
+          chrome.tabs.group({groupId:dropGid, tabIds:tabIds})
+        }
+      })
     })
-  })
+  }
+
 }, false);
 
 document.addEventListener("dragend", function( event ) {
-  draggedTab.classList.remove("dragged");
-  draggedTab = undefined;
+  draggedItem.classList.remove("dragged");
+  draggedItem = undefined;
 })
 
 
@@ -344,7 +377,8 @@ function showMenu() {
 
 
 var windows = []
-function updateTabs() {
+function updateTabs(...args) {
+  //console.log("update", this, args)
   var b = {}
   var groupId = undefined;
   var windowId = -1;
@@ -357,26 +391,36 @@ function updateTabs() {
   return;
 }
 
+function updateTab(tabId, changeInfo, tab) {
+  //console.log("Tab updated", tabId, changeInfo, tab)
+  for (var w of windows) {
+    if (w.id == tab.windowId) {
+      w.tabs[tab.index] = tab;
+      m.redraw();
+      return;
+    }
+  }
+}
 function updateGroup(tabGroup) {
   groupInfo[tabGroup.id] = tabGroup;
   m.redraw();
 }
 
-chrome.tabs.onActivated.addListener(updateTabs);
-chrome.tabs.onAttached.addListener(updateTabs);
-chrome.tabs.onCreated.addListener(updateTabs);
-chrome.tabs.onDetached.addListener(updateTabs);
-chrome.tabs.onHighlighted.addListener(updateTabs);
-chrome.tabs.onMoved.addListener(updateTabs);
-chrome.tabs.onRemoved.addListener(updateTabs);
-chrome.tabs.onReplaced.addListener(updateTabs);
-chrome.tabs.onUpdated.addListener(updateTabs);
-chrome.tabGroups.onCreated.addListener(updateTabs);
-chrome.tabGroups.onMoved.addListener(updateTabs);
-chrome.tabGroups.onRemoved.addListener(updateTabs);
+chrome.tabs.onActivated.addListener(updateTabs.bind("tabs.onActivated"));
+chrome.tabs.onAttached.addListener(updateTabs.bind("tabs.onAttached"));
+chrome.tabs.onCreated.addListener(updateTabs.bind("tabs.onCreated"));
+chrome.tabs.onDetached.addListener(updateTabs.bind("tabs.onDetached"));
+chrome.tabs.onHighlighted.addListener(updateTabs.bind("tabs.onHighlighted"));
+chrome.tabs.onMoved.addListener(updateTabs.bind("tabs.onMoved"));
+chrome.tabs.onRemoved.addListener(updateTabs.bind("tabs.onRemoved"));
+chrome.tabs.onReplaced.addListener(updateTabs.bind("tabs.onReplaced"));
+chrome.tabs.onUpdated.addListener(updateTab);
+chrome.tabGroups.onCreated.addListener(updateTabs.bind(""));
+chrome.tabGroups.onMoved.addListener(updateTabs.bind(""));
+chrome.tabGroups.onRemoved.addListener(updateTabs.bind(""));
 chrome.tabGroups.onUpdated.addListener(updateGroup);
-chrome.windows.onCreated.addListener(updateTabs);
-chrome.windows.onRemoved.addListener(updateTabs);
+chrome.windows.onCreated.addListener(updateTabs.bind(""));
+chrome.windows.onRemoved.addListener(updateTabs.bind(""));
 chrome.windows.onFocusChanged.addListener((w) => {
   if (w != myWindowId && w > 0) {
     lastWindowId = w;
@@ -632,12 +676,13 @@ var TabGroup = function(vnode) {
     grey: "⚪️", blue: "🔵", red: "🔴", yellow: "🟡", green: "🟢", pink: "🟣", purple: "🟣", cyan: "🟢"
   }
 
+
   function archiveGroup(e) {
     let group = this;
     e.stopPropagation();
 
     let title = group.info.title || group.info.color;
-    title = colorEmoji[group.info.color] + " " + title;
+    //title = `${title} (${group.info.color})`;
 
     getBookmarkRoot()
     .then(rootId => {
@@ -647,16 +692,14 @@ var TabGroup = function(vnode) {
     .then((folder) => {
       let promises = [];
      
-      promises.push(chrome.bookmarks.create({parentId: folder.id, title: "Open Group", url:chrome.runtime.getURL("?" + folder.id)}))
+      promises.push(chrome.bookmarks.create({parentId: folder.id, title: "Group: " + title, url:chrome.runtime.getURL(`open.html?id=${folder.id}&color=${group.info.color}`)}))
       group.tabs.forEach(tab => {
         promises.push(chrome.bookmarks.create({parentId: folder.id, title: tab.title, url: tab.url}))
       })
       return Promise.all(promises);
     })
     .then(results => {
-      console.log("results", results)
-
-      //chrome.tabs.remove(this.tabs.map(t => t.id))
+      chrome.tabs.remove(this.tabs.map(t => t.id))
     })
   }
 
@@ -724,6 +767,9 @@ var TabGroup = function(vnode) {
       
       if (collapsed) classList.push("collapsed");
       let height = collapsed ? 0 : children.length + 1;
+
+      attrs.draggable = true;
+      attrs.index = group.tabs[0].index
 
       return m('div.group', {class:classList.join(" "), style:`flex-grow:${height}`},
         m('div.header', attrs,
@@ -825,8 +871,9 @@ var Tab = function(vnode) {
         opener:tab.openerTabId || tabOpeners[tab.id],
         wid: tab.windowId,
         gid: tab.groupId,
-        index: tab.index + 1,
+        index: tab.index,
         title:tab.title,
+        data:tab,
         class:classList.join(" ")
       }
       attrs.onclick = onclick.bind(tab)

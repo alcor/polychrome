@@ -56,7 +56,7 @@ input#search {
   box-sizing: border-box;
   width: calc(100% - 20px);
   height: 30px;
-  padding: 0 0 0 12px;
+  padding: 0 8px 2px 12px;
   margin: 3px 0 4px 12px;
   border: none;
   border:1px solid var(--toolbar-color);
@@ -68,7 +68,7 @@ input#search:focus {
   outline: none;
   background-color: var(--background-color);
   border: 2px solid hsla(220, 78%, 76%,0.5);;
-  padding: 0 0 0 11px;
+  padding: 0 8px 0 11px;
 }
 
 .button {
@@ -285,7 +285,8 @@ div.button:hover div.menu {
   font-weight: 500;
 }
 
-.tab.dragged {
+.tab.dragged,
+.group.dragged {
   opacity: 0.2;
   filter: blur(2px);
 }
@@ -369,17 +370,20 @@ div.button:hover div.menu {
   box-sizing: border-box;
   position: sticky;
   z-index: 1;
-  background: var(--background-color);
+  /* background: var(--background-color); */
   top: calc(52px);
   /* display:flex; */
   max-height: 32px;
   flex: 1 0 auto;
 }
 
-.group.no-group .header .actions, .group .header:not(:hover) .actions {
+.group.no-group .header .actions,
+.group .header:not(:hover) .actions {
   opacity: 0.0;
   pointer-events: none;
 }
+
+
 
 .group.pinned {
   padding-left: 12px;
@@ -418,7 +422,8 @@ div.button:hover div.menu {
   padding-left: 16px;
   font-weight: 600;
   width: auto;
-  color: var(--accent-dark, --text-color)
+  color: var(--accent-dark, --text-color);
+  pointer-events:none;
 }
 
 .group.no-group {
@@ -515,12 +520,36 @@ div.button:hover div.menu {
   opacity: 1.0;
 }
 
-.droptarget {
-  border-bottom: 2px solid var(--text-color);
+.droptarget::before {
+  content:"";
+  height:2px;
+  width:calc(100% - 48px);
+  position:absolute;
+  margin-top:-24px;
+  left:28px;
+  background-color: var(--text-color);
 }
-.droptarget-above {
+
+.droptarget.after::before {
+  margin-top:23px;
+
+  /* background-color: gray; */
+}
+
+.group > .header.droptarget::before {
+  margin-top:0px;
+  left:16px;
+}
+.group > .header.droptarget.after::before {
+  margin-top:23px;
+}
+/* 
+.droptarget:not(.after) {
   border-top: 2px solid var(--text-color);
 }
+.droptarget.after {
+  border-bottom: 2px solid var(--text-color);
+} */
 
 .collapsed .droptarget:not(.header) {
   border-right: 2px solid var(--text-color);
@@ -643,7 +672,7 @@ hr {
 	}
 	
 	.tab.highlighted {
-	  background-color: var(--accent-dark, hsla(220, 78%, 76%,0.5));
+	  background-color: var(--accent-dark, hsla(220, 78%, 76%,0.3));
 	}
 	
 	.group {
@@ -658,4 +687,8 @@ hr {
 	  border: none;
 	  border-bottom: 1px solid rgba(255,255,255,0.3);
 	}
+
+  .window.frontmost .tab.highlighted {
+    background-color: var(--accent-dark, hsla(220, 78%, 76%,0.3));
+  }
 }

@@ -33,8 +33,5 @@
   "permissions": [
     "tabs", "tabGroups", "storage", "bookmarks", "history" 
   ],
-  // "host_permissions": [
-  //   "chrome://favicon/"
-  // ],
   "manifest_version": 3
 }
