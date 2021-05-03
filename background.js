@@ -90,7 +90,7 @@ function restoreGroupWithBookmark(params) {
       let promises = [];
       children.forEach(bookmark => {
         if (bookmark.url.startsWith("chrome-extension://")) return;
-        promises.push(chrome.tabs.create({url: bookmark.url}))
+        promises.push(chrome.tabs.create({url: bookmark.url, selected:false, active:false}))
       })
       return Promise.all(promises);
 

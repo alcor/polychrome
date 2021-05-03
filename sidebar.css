@@ -96,14 +96,30 @@ input#search:focus {
 div.menu {
   background: var(--toolbar-color);
   padding: 8px 0;
-  box-shadow: 2px 1px 4px rgba(0,0,0,0.2);
+  box-shadow: 0 3px 6px rgba(0,0,0,0.16), 0 2px 4px rgba(0,0,0,0.23);
   width: auto;
-  max-width: 50%;
-  right: 8px;
-  top: 48px;
   position: absolute;
   border-radius: 2px;
   display: none;
+  min-width:100px;
+  z-index:20;
+}
+
+.button div.menu {
+  max-width: 50%;
+  right: 8px;
+  top: 50px;
+}
+
+div.menu .action {
+  width:auto;
+  text-align:left;
+  cursor:default;
+}
+
+div.menu .action span {
+
+  margin-right:8px;
 }
 
 div.menu > div {
@@ -129,7 +145,8 @@ div.menu > div:hover {
   color: var(--text-color);
 }
 
-div.button:hover div.menu {
+div.button:hover div.menu,
+div.menu.visible {
   display: block;
 }
 
@@ -291,6 +308,8 @@ div.button:hover div.menu {
   filter: blur(2px);
 }
 
+.group > .header:hover,
+.group > .header.showingMenu,
 .tab:hover {
   background-color: var(--accent-highlight, --hover-color);
 }
@@ -343,7 +362,11 @@ div.button:hover div.menu {
 }
 
 .tab.indent-3 {
-  margin-left: 24px;
+  padding-left: 24px;
+}
+
+.tab.pinned {
+  padding-left: 8;
 }
 
 .tab.host-newtab {
@@ -513,7 +536,8 @@ div.button:hover div.menu {
 .action span {
   font-size: 16px;
   line-height: 24px;
-  opacity: 0.5
+  opacity: 0.5;
+  vertical-align: middle;
 }
 
 .action:hover span {

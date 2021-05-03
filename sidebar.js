@@ -442,7 +442,8 @@ var WindowManager = function(vnode) {
     view: function(vnode) {
       return [
         m(Toolbar),
-        m(WindowList, {windows:windows})
+        m(WindowList, {windows:windows}),
+        m(ContextMenu)
       ] 
     }
   }
@@ -496,25 +497,6 @@ var Toolbar = function(vnode) {
   }
 }
 
-var ContextMenu = function(vnode) {
-  return {
-    view: function() {
-      return m("div.menu#context-menu", 
-            m('div', {onclick:() => { sortTabs('domain') }}, "Pin"),
-            // m('div.disabled', {onclick:() => { sortTabs('type') }}, "New Grou"),
-            m('div', {onclick:() => { sortTabs('title') }}, "Sort by Title"),
-            m('hr'),
-            m('div', {onclick:() => { removeDuplicates() }}, "Remove Duplicates"),
-            m('div', {onclick:() => { discardAllTabs() }}, "Unload all tabs"),
-            // m('div.disabled', {onclick:() => { discardAllTabs() }}, "Combine Windows"),
-            m('hr'),
-            m('div', {class: preserveGroups,
-              onclick: () => setDefault(v({preserveGroups}), preserveGroups = !preserveGroups)
-            }, "Preserve Groups")
-          )
-    }
-  }
-}
 
 var Search = function(vnode) {
   return {
@@ -569,7 +551,9 @@ var Window = function(vnode) {
       var classList = [];
       if (w.id == lastWindowId) classList.push('frontmost');
 
-      return m('div.window', {class:classList}, [
+      return m('div.window', {class:classList,
+            onclick:(e) => {clearContext(); e.preventDefault();},
+            oncontextmenu: (e) => {e.preventDefault();}}, [
           m('div.header', m('div.title', "Window " + w.id)),
           m('div.contents', groups.map((group, i) => m(TabGroup, {group, key:group.id > 0 ? group.id : i})))
       ])
@@ -600,120 +584,198 @@ function updateOpeners() {
 function saveOpeners() {
   localStorage.setItem('tabOpeners',JSON.stringify(tabOpeners))
 }
+
+
+let contextTarget = undefined;
+let contextEvent = undefined;
+function clearContext() {
+  contextTarget = undefined;
+  contextEvent = undefined;
+}
+
+function showContextMenu(e) {
+  e.preventDefault();
+  e.stopPropagation();
+  contextTarget = this;
+  contextEvent = e;
+}
+
+
+var ContextMenu = function(vnode) {
+  return {
+    view: function() {
+      return contextTarget ? m(TabGroupMenu, {group:contextTarget}) : undefined
+    }
+  }
+}
+
+var TabGroupMenu = function(vnode) {
+  return {
+     view: function(vnode) {
+       let group = vnode.attrs.group;
+       let e = contextEvent;
+       let target = e.target.closest("[index]");
+       let style = {}
+       var rect = target.getBoundingClientRect();
+       style.top = (rect.bottom - 2) + "px";
+       if (e.clientX < window.innerWidth / 2) {
+        style.left = e.clientX + "px";
+       } else {
+        style.right = Math.max(window.innerWidth - rect.right, 4) + "px";
+       }
+       console.log("target for menu", target, contextEvent)
+      return m("div.menu#contextmenu", {class:'visible', style:style},
+        m('div.action.ungroup', {title:'Ungroup', onclick:ungroupGroup.bind(group)},
+          m('span.material-icons',"layers_clear"), 'Ungroup'),
+        m('div.action.ungroup', {title:'Ungroup', onclick:renameGroup.bind(group)},
+          m('span.material-icons',"edit"), 'Rename'),
+        m('div.action.popout', {title:'Open in new window', onclick:popOutGroup.bind(group)},
+          m('span.material-icons',"open_in_new"), 'Move to new window'),
+        m('div.action.archive', {title:'Archive', onclick:archiveGroup.bind(group)},
+          m('span.material-icons',"save_alt"), "Archive group"),
+        m('div.action.close', {title:'Close', onclick:closeGroup.bind(group)},
+          m('span.material-icons',"close"), 'Close group')
+      )
+
+     }
+  }
+}
+
+var TabMenu = function(vnode) {
+  return {
+     view: function(vnode) {
+      return ("div.menu",
+        m('div.action.ungroup', {title:'Ungroup', onclick:ungroupGroup.bind(group)},
+          m('span.material-icons',"layers_clear"), 'Ungroup'),
+        m('div.action.popout', {title:'Open in new window', onclick:popOutGroup.bind(group)},
+          m('span.material-icons',"open_in_new"), 'Open in new window')
+
+
+      )
+
+     }
+  }
+}
+
+
+
+function popOutGroup(e) {
+  e.stopPropagation();
+  clearContext();
+
+  let groupId = this.id;
+
+  chrome.windows.get(this.info.windowId, {})
+  .then(sourceWindow => {      
+    chrome.windows.create({
+      url: "about:blank",
+      type: "normal",
+      width:sourceWindow.width,
+      height:sourceWindow.height,
+      top:sourceWindow.top,
+      left:sourceWindow.left
+    })
+    .then( window => {
+      let extraTab = window.tabs[0].id;
+      chrome.tabGroups.move(this.id,{windowId:window.id, index:0})
+      .then(group => {    
+        chrome.tabs.remove(extraTab)
+      })  
+    })
+  })
+}
+
+function archiveGroup(e) {
+  let group = this;
+  e.stopPropagation();
+
+  let title = group.info.title || group.info.color;
+  //title = `${title} (${group.info.color})`;
+
+  getBookmarkRoot()
+  .then(rootId => {
+    console.log("got id", rootId, group)
+    return chrome.bookmarks.create({parentId: rootId, title: title})
+  })
+  .then((folder) => {
+    let promises = [];
+   
+    promises.push(chrome.bookmarks.create({parentId: folder.id, title: title + " - Open Group", url:chrome.runtime.getURL(`open.html?id=${folder.id}&color=${group.info.color}`)}))
+    group.tabs.forEach(tab => {
+      promises.push(chrome.bookmarks.create({parentId: folder.id, title: tab.title, url: tab.url}))
+    })
+    return Promise.all(promises);
+  })
+  .then(results => {
+    chrome.tabs.remove(this.tabs.map(t => t.id))
+  })
+}
+
+
+
+function closeGroup(e) {
+  e.stopPropagation();
+  clearContext();
+  chrome.tabs.remove(this.tabs.map(t => t.id))
+}
+
+function ungroupGroup(e) {
+  e.stopPropagation();
+  clearContext();
+  chrome.tabs.ungroup(this.tabs.map(t => t.id))
+}
+
+function renameGroup(e) {
+  e.stopPropagation();
+  clearContext();
+  let title = prompt("Rename Group", this.info.title)
+  if (title) chrome.tabGroups.update(this.id, {title: title})
+}
+
+function newTabInGroup(e) {
+  e.preventDefault();
+  e.stopPropagation();
+  clearContext();
+  chrome.windows.update(lastWindowId, { "focused": true })
+  .then((win) => 
+    chrome.tabs.create({index:0, windowId:win.id})
+  ).then ((tab) =>
+    chrome.tabs.group({groupId:this.id, tabIds:[tab.id]})
+  )
+}
+
+var bookmarkRoot = getDefault(v({bookmarkRoot}));
+let BOOKMARK_FOLDER_TITLE = "Tabs​";
+
+async function getBookmarkRoot() {
+  if (!bookmarkRoot) {
+    let folder = await chrome.bookmarks.search({title:BOOKMARK_FOLDER_TITLE})
+    console.log("folder", folder)
+    folder = folder[0]
+
+    if (!folder) {
+      folder = await chrome.bookmarks.create({parentId: '1', 'title': BOOKMARK_FOLDER_TITLE});
+    }
+
+    if (folder.id) {
+      setDefault(v({bookmarkRoot}), bookmarkRoot = folder.id)      
+    }
+  }
+  return bookmarkRoot;
+}
+
+let colorEmoji = {
+  grey: "⚪️", blue: "🔵", red: "🔴", yellow: "🟡", green: "🟢", pink: "🟣", purple: "🟣", cyan: "🟢"
+}
+
+
 var TabGroup = function(vnode) {
   function onclick (e) {
     chrome.tabGroups.update(this.id, { 'collapsed': !this.info.collapsed });
-  }
-  function oncontextmenu (e) {
-    e.preventDefault();
-    let title = prompt("Rename Group", this.info.title)
-    console.log(this, title)
-    if (title) chrome.tabGroups.update(this.id, {title: title})
-  }
-  function newTab(e) {
-    e.preventDefault();
-    e.stopPropagation();
-    chrome.windows.update(lastWindowId, { "focused": true })
-    .then((win) => 
-      chrome.tabs.create({index:0, windowId:win.id})
-    ).then ((tab) =>
-      chrome.tabs.group({groupId:this.id, tabIds:[tab.id]})
-    )
-  }
-
-  function popOutGroup(e) {
-    e.stopPropagation();
-    let groupId = this.id;
-
-    chrome.windows.get(this.info.windowId, {})
-    .then(sourceWindow => {      
-      chrome.windows.create({
-        url: "about:blank",
-        type: "normal",
-        width:sourceWindow.width,
-        height:sourceWindow.height,
-        top:sourceWindow.top,
-        left:sourceWindow.left
-      })
-      .then( window => {
-        let extraTab = window.tabs[0].id;
-        chrome.tabGroups.move(this.id,{windowId:window.id, index:0})
-        .then(group => {    
-          chrome.tabs.remove(extraTab)
-        })  
-      })
-    })
-  }
-
-  function showGroupMenu(e) {
-
+    clearContext();
   }
 
 
-  
-  var bookmarkRoot = getDefault(v({bookmarkRoot}));
-  let BOOKMARK_FOLDER_TITLE = "Tabs​";
-
-  async function getBookmarkRoot() {
-    if (!bookmarkRoot) {
-      let folder = await chrome.bookmarks.search({title:BOOKMARK_FOLDER_TITLE})
-      console.log("folder", folder)
-      folder = folder[0]
-
-      if (!folder) {
-        folder = await chrome.bookmarks.create({parentId: '1', 'title': BOOKMARK_FOLDER_TITLE});
-      }
-  
-      if (folder.id) {
-        setDefault(v({bookmarkRoot}), bookmarkRoot = folder.id)      
-      }
-    }
-    return bookmarkRoot;
-  }
-
-  
-  let colorEmoji = {
-    grey: "⚪️", blue: "🔵", red: "🔴", yellow: "🟡", green: "🟢", pink: "🟣", purple: "🟣", cyan: "🟢"
-  }
-
-
-  function archiveGroup(e) {
-    let group = this;
-    e.stopPropagation();
-
-    let title = group.info.title || group.info.color;
-    //title = `${title} (${group.info.color})`;
-
-    getBookmarkRoot()
-    .then(rootId => {
-      console.log("got id", rootId, group)
-      return chrome.bookmarks.create({parentId: rootId, title: title})
-    })
-    .then((folder) => {
-      let promises = [];
-     
-      promises.push(chrome.bookmarks.create({parentId: folder.id, title: "Group: " + title, url:chrome.runtime.getURL(`open.html?id=${folder.id}&color=${group.info.color}`)}))
-      group.tabs.forEach(tab => {
-        promises.push(chrome.bookmarks.create({parentId: folder.id, title: tab.title, url: tab.url}))
-      })
-      return Promise.all(promises);
-    })
-    .then(results => {
-      chrome.tabs.remove(this.tabs.map(t => t.id))
-    })
-  }
-
-
-
-  function closeGroup(e) {
-    e.stopPropagation();
-    chrome.tabs.remove(this.tabs.map(t => t.id))
-  }
-
-  function ungroup(e) {
-    e.stopPropagation();
-    chrome.tabs.ungroup(this.tabs.map(t => t.id))
-  }
 
   return {
     view: function(vnode) {
@@ -725,7 +787,7 @@ var TabGroup = function(vnode) {
         classList.push(group.info.color);
         collapsed = group.info.collapsed;
         attrs.onclick = onclick.bind(group)
-        attrs.oncontextmenu = oncontextmenu.bind(group)
+        attrs.oncontextmenu = showContextMenu.bind(group)
       } else {
         classList.push("no-group");
       }
@@ -771,15 +833,13 @@ var TabGroup = function(vnode) {
       attrs.draggable = true;
       attrs.index = group.tabs[0].index
 
+      if (contextTarget && (group.id == contextTarget.id)) attrs.class = ("showingMenu");
+
       return m('div.group', {class:classList.join(" "), style:`flex-grow:${height}`},
         m('div.header', attrs,
           m('div.actions',
-            m('div.action.newtab', {title:'New tab in group', onclick:newTab.bind(group)}, m('span.material-icons',"add_circle")),
-             m('div.action.ungroup', {title:'Ungroup', onclick:ungroup.bind(group)}, m('span.material-icons',"layers_clear")),
-            m('div.action.popout', {title:'Open in new window', onclick:popOutGroup.bind(group)}, m('span.material-icons',"open_in_new")),
-            m('div.action.more', {title:'Menu', onclick:showGroupMenu.bind(group)}, m('span.material-icons',"more_vert")),
-            m('div.action.archive', {title:'Archive', onclick:archiveGroup.bind(group)}, m('span.material-icons',"save_alt")),
-            m('div.action.close', {title:'Close', onclick:closeGroup.bind(group)}, m('span.material-icons',"close"))
+            m('div.action.newtab', {title:'New tab in group', onclick:newTabInGroup.bind(group)}, m('span.material-icons',"add_circle")),
+            m('div.action.more', {title:'Menu', onclick:showContextMenu.bind(group)}, m('span.material-icons',"more_vert"))
           ),
           m('div.title', title),
         ),
