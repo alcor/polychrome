@@ -141,7 +141,7 @@ function sortTabs(type) {
 } 
 
 function removeDuplicates() {
-  chrome.runtime.sendMessage('removeDuplicates', (response) => {
+  chrome.runtime.sendMessage({action:'removeDuplicates'}, (response) => {
     console.log('received response', response);
   });
   return;
@@ -470,10 +470,18 @@ function discardAllTabs() {
     })  
   })
 }
+
+function refresh() {
+  chrome.runtime.sendMessage({action:'reload'}, (response) => {
+    window.location.reload()
+  });
+}
+
 function toggle(v) {
   v = !v;
   setDefault(v);
 }
+
 var Toolbar = function(vnode) {
   return {
     view: function() {
@@ -505,7 +513,7 @@ var Toolbar = function(vnode) {
             onclick: () => setDefault(v({simplifyTitles}), simplifyTitles = !simplifyTitles)
             }, "Simplify titles"),
             m('hr'),
-            m('div', {onclick: () => window.location.reload()},"Refresh")
+            m('div', {onclick: refresh},"Refresh")
           )
         )
       )   
@@ -699,12 +707,20 @@ function popOutGroup(e) {
   })
 }
 
-function archiveGroup(e) {
-  let group = this;
-  e.stopPropagation();
+// function archiveGroup(e) {
+//   e.stopPropagation();
+//   chrome.runtime.sendMessage({action:'archiveGroup', group: this}, (response) => {
+//     console.log('group archived', response);
+//   });
+// }
+let colorEmoji = { grey: "⚪️", blue: "🔵", red: "🔴", yellow: "🟡", green: "🟢", pink: "🌸", purple: "🟣", cyan: "🌐" }
 
+
+function archiveGroup(e) {
+  e.stopPropagation();
+  let group = this;
   let title = group.info.title || group.info.color;
-  //title = `${title} (${group.info.color})`;
+  let fancyTitle = `${colorEmoji[group.info.color]} ${title}`;
 
   getBookmarkRoot()
   .then(rootId => {
@@ -713,9 +729,9 @@ function archiveGroup(e) {
   })
   .then((folder) => {
     let promises = [];
-   
-    promises.push(chrome.bookmarks.create({parentId: folder.id, title: title + " - Open Group", url:chrome.runtime.getURL(`open.html?id=${folder.id}&color=${group.info.color}`)}))
-    group.tabs.forEach(tab => {
+
+    chrome.bookmarks.create({parentId: "1", title: fancyTitle, url:chrome.runtime.getURL(`open.html?id=${folder.id}&color=${group.info.color}`)})
+      group.tabs.forEach(tab => {
       promises.push(chrome.bookmarks.create({parentId: folder.id, title: tab.title, url: tab.url}))
     })
     return Promise.all(promises);
@@ -723,6 +739,34 @@ function archiveGroup(e) {
   .then(results => {
     chrome.tabs.remove(this.tabs.map(t => t.id))
   })
+}
+var bookmarkRoot = getDefault(v({bookmarkRoot}));
+let BOOKMARK_FOLDER_TITLE = "Tab Archive​";
+
+async function getBookmarkRoot() {
+  getDefault(v({bookmarkRoot}));
+  if (bookmarkRoot) {
+    try {
+      await chrome.bookmarks.get(bookmarkRoot)
+    } catch(err) {
+      bookmarkRoot = undefined;
+    }
+  }
+
+  if (!bookmarkRoot) {
+    let folder = await chrome.bookmarks.search({title:BOOKMARK_FOLDER_TITLE})
+    console.log("folder", folder)
+    folder = folder[0]
+
+    if (!folder) {
+      folder = await chrome.bookmarks.create({parentId: '2', 'title': BOOKMARK_FOLDER_TITLE, index:0});
+    }
+
+    if (folder.id) {
+      setDefault(v({bookmarkRoot}), bookmarkRoot = folder.id)      
+    }
+  }
+  return bookmarkRoot;
 }
 
 
@@ -758,38 +802,11 @@ function newTabInGroup(e) {
   )
 }
 
-var bookmarkRoot = getDefault(v({bookmarkRoot}));
-let BOOKMARK_FOLDER_TITLE = "Tabs​";
-
-async function getBookmarkRoot() {
-  if (!bookmarkRoot) {
-    let folder = await chrome.bookmarks.search({title:BOOKMARK_FOLDER_TITLE})
-    console.log("folder", folder)
-    folder = folder[0]
-
-    if (!folder) {
-      folder = await chrome.bookmarks.create({parentId: '1', 'title': BOOKMARK_FOLDER_TITLE});
-    }
-
-    if (folder.id) {
-      setDefault(v({bookmarkRoot}), bookmarkRoot = folder.id)      
-    }
-  }
-  return bookmarkRoot;
-}
-
-let colorEmoji = {
-  grey: "⚪️", blue: "🔵", red: "🔴", yellow: "🟡", green: "🟢", pink: "🟣", purple: "🟣", cyan: "🟢"
-}
-
-
 var TabGroup = function(vnode) {
   function onclick (e) {
     chrome.tabGroups.update(this.id, { 'collapsed': !this.info.collapsed });
     clearContext();
   }
-
-
 
   return {
     view: function(vnode) {

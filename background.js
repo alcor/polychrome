@@ -1,4 +1,3 @@
-var FOLDER_TITLE = 'Tabs'
 
 chrome.runtime.onInstalled.addListener(function() {
   console.log("Astrolabe Installed");
@@ -11,16 +10,23 @@ chrome.commands.onCommand.addListener(function(command) {
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   let handlers = {
     restoreGroup: restoreGroup,
+    reload: reload,
     'removeDuplicates': removeDuplicates
   }
 
-  if (handlers[message]) {
-    handlers[message](sender, sendResponse);
+  if (handlers[message.action]) {
+    if (!handlers[message.action](message, sender, sendResponse)) {
+      sendResponse();
+    };
   } else {
     console.error("handler not found", message)
     sendResponse(undefined)
   }
 });
+
+function reload() {
+  //chrome.runtime.reload()
+}
 
 function removeDuplicates() {
   chrome.windows.getAll({populate:true, windowTypes:['normal']})
@@ -40,29 +46,9 @@ function removeDuplicates() {
   })
 }
 
-// async function getBookmarkRoot() {
-//   if (!bookmarkRoot) {
-//     let folder = await chrome.bookmarks.search({title:BOOKMARK_FOLDER_TITLE})
-//     console.log("folder", folder)
-//     folder = folder[0]
-
-//     if (!folder) {
-//       folder = await chrome.bookmarks.create({parentId: '1', 'title': BOOKMARK_FOLDER_TITLE});
-//     }
-
-//     if (folder.id) {
-//       setDefault(v({bookmarkRoot}), bookmarkRoot = folder.id)      
-//     }
-//   }
-//   return bookmarkRoot;
-// }
-
-
-
-function restoreGroup(sender, sendResponse) {
-  sendResponse(true);
+function restoreGroup(args, sender, sendResponse) {
   let url = new URL(sender.url);
-  console.log("url", url, url.search)
+  console.log("url", args, url, url.search)
   let id = url.hash.substr(1);
   let params = new URLSearchParams(url.search);
   if (params) {
@@ -72,8 +58,6 @@ function restoreGroup(sender, sendResponse) {
     });
   }
 }
-
-  
 
 function restoreGroupWithBookmark(params) { 
   let id = params.get('id');
@@ -105,3 +89,5 @@ function restoreGroupWithBookmark(params) {
     }); 
   })
 }
+
+
