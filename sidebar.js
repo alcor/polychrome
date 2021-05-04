@@ -464,8 +464,10 @@ var WindowManager = function(vnode) {
 }
 
 function discardAllTabs() {
-  windows[0].tabs.forEach( (tab) => {
-    chrome.tabs.discard(tab.id)
+  windows.forEach(w => {
+    w.tabs.forEach(tab => {
+      if (!tab.active && !tab.discarded) chrome.tabs.discard(tab.id)
+    })  
   })
 }
 function toggle(v) {
@@ -637,7 +639,6 @@ var TabGroupMenu = function(vnode) {
        } else {
         style.right = Math.max(window.innerWidth - rect.right, 4) + "px";
        }
-       console.log("target for menu", target, contextEvent)
       return m("div.menu#contextmenu", {class:'visible', style:style},
         m('div.action.ungroup', {title:'Ungroup', onclick:ungroupGroup.bind(group)},
           m('span.material-icons',"layers_clear"), 'Ungroup'),
@@ -650,7 +651,6 @@ var TabGroupMenu = function(vnode) {
         m('div.action.close', {title:'Close', onclick:closeGroup.bind(group)},
           m('span.material-icons',"close"), 'Close group')
       )
-
      }
   }
 }
@@ -752,7 +752,7 @@ function newTabInGroup(e) {
   clearContext();
   chrome.windows.update(lastWindowId, { "focused": true })
   .then((win) => 
-    chrome.tabs.create({index:0, windowId:win.id})
+    chrome.tabs.create({windowId:win.id})
   ).then ((tab) =>
     chrome.tabs.group({groupId:this.id, tabIds:[tab.id]})
   )
@@ -852,7 +852,7 @@ var TabGroup = function(vnode) {
       return m('div.group', {class:classList.join(" "), style:`flex-grow:${height}`},
         m('div.header', attrs,
           m('div.actions',
-            m('div.action.newtab', {title:'New tab in group', onclick:newTabInGroup.bind(group)}, m('span.material-icons',"add_circle")),
+            m('div.action.newtab', {title:'New tab in group', onclick:newTabInGroup.bind(group)}, m('span.material-icons',"add_circle_outline")),
             m('div.action.more', {title:'Menu', onclick:showContextMenu.bind(group)}, m('span.material-icons',"more_vert"))
           ),
           m('div.title', title),
@@ -949,7 +949,7 @@ var Tab = function(vnode) {
         wid: tab.windowId,
         gid: tab.groupId,
         index: tab.index,
-        title:tab.title,
+        title:tab.title + "\n" + host,
         data:tab,
         class:classList.join(" ")
       }
