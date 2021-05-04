@@ -53,9 +53,6 @@ function restoreGroup(args, sender, sendResponse) {
   let params = new URLSearchParams(url.search);
   if (params) {
     restoreGroupWithBookmark(params)
-    .then(() => {
-      chrome.tabs.remove(sender.tab.id);
-    });
   }
 }
 

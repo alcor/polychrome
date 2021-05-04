@@ -2,8 +2,8 @@
   "name": "Astrolabe",
   "short_name": "Astrolabe",
   "description": "",
-  "version": "0.6",
-  "icons": { "128": "img/astrolabe.png" },
+  "version": "0.7",
+  "icons": { "32": "img/tabs.png" },
   "incognito": "split",
   "chrome_url_overrides": {
   },
