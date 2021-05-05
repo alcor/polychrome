@@ -181,9 +181,9 @@ function setDefault(key, value) {
 
 
 var titleReplacements = {
-  "www.google.com": /(.*) - Google Search/,
-  "www.amazon.com": /Amazon\.com: (.*)/,
-  "app.slack.com": /Slack \| (.*)/,
+  "www.google.com": /(?<title>.*) - (?<app>Google) Search/,
+  "www.amazon.com": /(?<app>Amazon)\.com: (?<title>.*)/,
+  "app.slack.com": /(?<app>Slack) \| (?<title>.*)/,
 }
 
 var iconReplacements = {
@@ -191,26 +191,37 @@ var iconReplacements = {
 }
 
 function titleForTab(tab) {
-  if (!tab.url.length) return tab.title;
-  let url;
+  let title = tab.title;
+  let app = undefined;
+  if (tab.url.length) {
+    let url;
 
-  try {
-     url = new URL(tab.url);
-  } catch (e) {
-    console.log(`cannot read url "${tab.url}"`, e)
+    try {
+      url = new URL(tab.url);
+    } catch (e) {
+      console.log(`cannot read url "${tab.url}"`, e)
+    }
+
+    //app = url.host;
+
+    let replacement = titleReplacements[url.hostname];
+
+    if (replacement) {
+      let match = title.match(replacement);
+      
+      if (match) {
+        title = match.groups.title;
+        app = match.groups.app;
+  
+      }
+      //title = tab.title.replace(replacement, '$1')
+    } else if (simplifyTitles) {
+      let components = tab.title.split(/\s[-–—•|]\s/g);
+      if (components.length > 1) app = components.pop();
+      title = components.join(' • ');
+    }
   }
-
-  let replacement = titleReplacements[url.hostname];
-
-  if (replacement) {
-    return tab.title.replace(replacement, '$1')
-  } else if (simplifyTitles) {
-    let components = tab.title.split(/\s[-–—•|]\s/g);
-    if (components.length > 1) components.pop();
-    return components.join(' • ');
-  }
-
-  return tab.title;
+  return {title, app};
 }
 
 //
@@ -406,7 +417,7 @@ function updateTabs(...args) {
 }
 
 function updateTab(tabId, changeInfo, tab) {
-  //console.log("Tab updated", tabId, changeInfo, tab)
+  console.debug("Tab updated", tabId, changeInfo, tab)
   for (var w of windows) {
     if (w.id == tab.windowId) {
       w.tabs[tab.index] = tab;
@@ -707,12 +718,11 @@ function popOutGroup(e) {
   })
 }
 
-// function archiveGroup(e) {
-//   e.stopPropagation();
-//   chrome.runtime.sendMessage({action:'archiveGroup', group: this}, (response) => {
-//     console.log('group archived', response);
-//   });
-// }
+function archiveTab(e) {
+  e.stopPropagation();
+}
+
+
 let colorEmoji = { grey: "⚪️", blue: "🔵", red: "🔴", yellow: "🟡", green: "🟢", pink: "🌸", purple: "🟣", cyan: "🌐" }
 
 
@@ -946,12 +956,13 @@ var Tab = function(vnode) {
       if (tab.audible) classList.push('audible');
       if (tab.discarded) classList.push('discarded');
       if (tab.highlighted) classList.push('highlighted');
-      if (tab.isQuery) classList.push('query');
+      if (tab.isQuery && simplifyTitles) classList.push('query');
       if (tab.indent) {
         classList.push('indent-' + tab.indent);
       }
 
-      let title = titleForTab(tab)
+      let titles = titleForTab(tab)
+
       if (activeQuery) {
         if (!tab.title.toLowerCase().includes(activeQuery)) {
           classList.push('filtered');
@@ -967,20 +978,20 @@ var Tab = function(vnode) {
         gid: tab.groupId,
         index: tab.index,
         title:tab.title + "\n" + host,
-        data:tab,
         class:classList.join(" ")
       }
       attrs.onclick = onclick.bind(tab)
       attrs.draggable = true;
       
-
       return m('div.tab', attrs,
         m('div.loader'),
         m('div.actions',
+          m('div.action.archive', {title:'Archive', onclick:archiveTab.bind(tab)}, m('span.material-icons',"save_alt")),
+          
           m('div.action.close', {onclick: close.bind(tab)}, m('span.material-icons',"close"))
         ),
         m('img.icon', {src: favIconUrl}),
-        m('div.title', title)
+        m('div.title', titles.title, titles.app ? m('span.app', " • " + titles.app) : undefined)
       )
     }
   }

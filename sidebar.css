@@ -242,6 +242,13 @@ div.menu.visible {
   transform: scale(1);
   transition:transform 200ms;
 }
+.tab .app {
+  display:none;
+}
+.tab:hover .app {
+  display:inline;
+  opacity:0.2;
+}
 .title {
   overflow: hidden;
   text-overflow: ellipsis;
@@ -349,7 +356,13 @@ div.menu.visible {
 }
 
 .tab.discarded, .tab.unloaded {
-  font-style: oblique;
+  xxfont-style: oblique;
+}
+
+.tab.discarded:not(:hover) .icon {
+  filter: saturate(0.0);
+  opacity:0.5;
+  
 }
 
 .tab.loading:not(.pinned) {
@@ -439,6 +452,28 @@ div.menu.visible {
   flex-wrap: wrap;
 }
 
+.group.collapsed {
+  flex-direction:row;
+  flex-wrap:nowrap;
+  overflow:hidden;
+}
+.group.collapsed .actions {
+  display:none;
+}
+
+
+.group.collapsed > .header {
+  max-width:auto;
+  flex:1 0 0;
+}
+
+.group.collapsed:hover > .header {
+  max-width:33%;
+}
+
+.group.collapsed:not(:hover) .tab {
+  display:none;
+}
 
 .tab.indent-0 {
   margin-left: 24px;
@@ -451,7 +486,8 @@ div.menu.visible {
   font-weight: bold !important;
   padding-left: 18px;
 }
-.group:not(.collapsed) .tab.query .icon {
+.group:not(.collapsed) .tab.query .icon,
+.group:not(.collapsed) .tab.host-chrome .icon {
   display:none;
 }
 

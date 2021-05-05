@@ -48,7 +48,6 @@ function removeDuplicates() {
 
 function restoreGroup(args, sender, sendResponse) {
   let url = new URL(sender.url);
-  console.log("url", args, url, url.search)
   let id = url.hash.substr(1);
   let params = new URLSearchParams(url.search);
   if (params) {
