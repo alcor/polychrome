@@ -125,6 +125,8 @@ function sortTabs(type) {
         tab.type = typeForTab(tab);
       });
 
+      let groups = {}
+
       if (type == 'domain') {
         tabs.sort(sortByDomain);
         console.log(tabs.map(t=>t.reverseHost))
@@ -134,15 +136,33 @@ function sortTabs(type) {
         tabs.sort(sortByType); 
       }
 
+    
       let orderedIds = [];      
       tabs.forEach((tab) => {
-        if (tab.groupId < 0 && !tab.pinned) {
-          orderedIds.push(tab.id);
+        if (tab.pinned) return;
+        if (preserveGroups && tab.groupId > 0) return;
+        orderedIds.push(tab.id);
+        let cluster = tab.hostname;
+        if (cluster) {
+          if (!groups[cluster]) groups[cluster] = [];
+          groups[cluster].push(tab.id) 
         }
       });
       console.log(orderedIds)
-      chrome.tabs.move(orderedIds,  {index:-1, windowId:w.id});
-
+      chrome.tabs.move(orderedIds, {index:-1, windowId:w.id});
+      //if (!preserveGroups) 
+      chrome.tabs.ungroup(orderedIds)
+      .then(() => {
+        if (type == 'domain') {
+        for (var cluster in groups) {
+            let tabIds = groups[cluster];
+            if (tabIds.length <= 1) continue;
+            let name = cluster;
+            chrome.tabs.group({tabIds:tabIds, createProperties:{windowId:w.id}})
+            .then(group => { chrome.tabGroups.update(group, {title: name})})
+          }
+        }
+      })
     })
   });
 } 
@@ -211,21 +231,23 @@ function titleForTab(tab) {
 
     //app = url.host;
 
-    let replacement = titleReplacements[url.hostname];
+    if (simplifyTitles) {
+      let replacement = titleReplacements[url.hostname];
 
-    if (replacement) {
-      let match = title.match(replacement);
-      
-      if (match) {
-        title = match.groups.title;
-        app = match.groups.app;
-  
+      if (replacement) {
+        let match = title.match(replacement);
+        
+        if (match) {
+          title = match.groups.title;
+          app = match.groups.app;
+    
+        }
+        //title = tab.title.replace(replacement, '$1')
+      } else {
+        let components = tab.title.split(/\s[-–—•|]\s/g);
+        if (components.length > 1) app = components.pop();
+        title = components.join(' • ');
       }
-      //title = tab.title.replace(replacement, '$1')
-    } else if (simplifyTitles) {
-      let components = tab.title.split(/\s[-–—•|]\s/g);
-      if (components.length > 1) app = components.pop();
-      title = components.join(' • ');
     }
   }
   return {title, app};
@@ -814,9 +836,7 @@ function groupTabs(e) {
     chrome.tabs.query({highlighted:true, windowId:this.windowId})
     .then(tabs => {
       chrome.tabs.group({tabIds:tabs.map(t => t.id), createProperties:{windowId:this.windowId}})
-      .then(group => {
-        chrome.tabGroups.update(group, {title: title})
-      })
+      .then(group => { chrome.tabGroups.update(group, {title: title})})
     })
   }
 }
