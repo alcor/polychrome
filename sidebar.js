@@ -38,6 +38,13 @@ window.addEventListener("focus", function(event) {
   searchEl.focus();
 }, false);
 
+window.addEventListener("click", function(event) { 
+  if (contextTarget && !event.target.closest("menu")) {
+    clearContext();
+    m.redraw();
+  }
+}, false);
+
 
 // Window auto-focus
 
@@ -636,18 +643,29 @@ function showContextMenu(e) {
 }
 
 
+// var ContextMenu = function(vnode) {
+//   return {
+//     view: function() {
+//       if (contextTarget) {
+//         if (contextTarget.groupId) {
+//           return m(TabMenu, {tab:contextTarget}) 
+//         } else {
+//           return m(TabGroupMenu, {group:contextTarget}) 
+//         }
+//       }
+//       return undefined;
+//     }
+//   }
+// }
+
 var ContextMenu = function(vnode) {
   return {
-    view: function() {
-      return contextTarget ? m(TabGroupMenu, {group:contextTarget}) : undefined
-    }
-  }
-}
-
-var TabGroupMenu = function(vnode) {
-  return {
      view: function(vnode) {
-       let group = vnode.attrs.group;
+      if (!contextTarget) return undefined;
+
+      
+       let item = contextTarget;
+       let isTab = contextTarget.groupId != undefined;
        let e = contextEvent;
        let target = e.target.closest("[index]");
        let style = {}
@@ -658,38 +676,32 @@ var TabGroupMenu = function(vnode) {
        } else {
         style.right = Math.max(window.innerWidth - rect.right, 4) + "px";
        }
-      return m("div.menu#contextmenu", {class:'visible', style:style},
-        m('div.action.ungroup', {title:'Ungroup', onclick:ungroupGroup.bind(group)},
-          m('span.material-icons',"layers_clear"), 'Ungroup'),
-        m('div.action.ungroup', {title:'Ungroup', onclick:renameGroup.bind(group)},
-          m('span.material-icons',"edit"), 'Rename'),
-        m('div.action.popout', {title:'Open in new window', onclick:popOutGroup.bind(group)},
-          m('span.material-icons',"open_in_new"), 'Move to new window'),
-        m('div.action.archive', {title:'Archive', onclick:archiveGroup.bind(group)},
-          m('span.material-icons',"save_alt"), "Archive group"),
-        m('div.action.close', {title:'Close', onclick:closeGroup.bind(group)},
-          m('span.material-icons',"close"), 'Close group')
-      )
-     }
+
+       if (isTab) {
+        return m("div.menu#contextmenu", {class:'visible', style:style},
+          m('div.action.group-tabs', {title:'Group', onclick:groupTabs.bind(item)},
+            m('span.material-icons',"layers"), 'Group Tabs')//,
+          // m('div.action.popout', {title:'Pop Out', onclick:popOutTab.bind(item)},
+          //   m('span.material-icons',"open_in_new"), 'Move to new window')
+        );
+       } else {
+        return m("div.menu#contextmenu", {class:'visible', style:style},
+          m('div.action.ungroup', {title:'Ungroup', onclick:ungroupGroup.bind(item)},
+            m('span.material-icons',"layers_clear"), 'Ungroup'),
+          m('div.action.rename', {title:'Ungroup', onclick:renameGroup.bind(item)},
+            m('span.material-icons',"edit"), 'Rename'),
+          m('div.action.popout', {title:'Open in new window', onclick:popOutGroup.bind(item)},
+            m('span.material-icons',"open_in_new"), 'Move to new window'),
+          m('div.action.archive', {title:'Archive', onclick:archiveGroup.bind(item)},
+            m('span.material-icons',"save_alt"), "Archive group"),
+          m('div.action.close', {title:'Close', onclick:closeGroup.bind(item)},
+            m('span.material-icons',"close"), 'Close group')
+          );
+      }
+
+    }
   }
 }
-
-var TabMenu = function(vnode) {
-  return {
-     view: function(vnode) {
-      return ("div.menu",
-        m('div.action.ungroup', {title:'Ungroup', onclick:ungroupGroup.bind(group)},
-          m('span.material-icons',"layers_clear"), 'Ungroup'),
-        m('div.action.popout', {title:'Open in new window', onclick:popOutGroup.bind(group)},
-          m('span.material-icons',"open_in_new"), 'Open in new window')
-
-
-      )
-
-     }
-  }
-}
-
 
 
 function popOutGroup(e) {
@@ -793,6 +805,28 @@ function ungroupGroup(e) {
   chrome.tabs.ungroup(this.tabs.map(t => t.id))
 }
 
+function groupTabs(e) {
+  e.stopPropagation();
+  clearContext();
+
+  let title = prompt("New Group")
+  if (title) {
+    chrome.tabs.query({highlighted:true, windowId:this.windowId})
+    .then(tabs => {
+      chrome.tabs.group({tabIds:tabs.map(t => t.id), createProperties:{windowId:this.windowId}})
+      .then(group => {
+        chrome.tabGroups.update(group, {title: title})
+      })
+    })
+  }
+}
+
+function popOutTab(e){
+
+ }
+
+
+ 
 function renameGroup(e) {
   e.stopPropagation();
   clearContext();
@@ -978,7 +1012,8 @@ var Tab = function(vnode) {
         gid: tab.groupId,
         index: tab.index,
         title:tab.title + "\n" + host,
-        class:classList.join(" ")
+        class:classList.join(" "),
+        oncontextmenu: showContextMenu.bind(tab)
       }
       attrs.onclick = onclick.bind(tab)
       attrs.draggable = true;
