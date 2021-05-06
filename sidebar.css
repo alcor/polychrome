@@ -24,12 +24,17 @@ body {
 }
 
 body.menu {
-  min-width: 256px;
-  max-width: 320px;
+  min-width: 320px;
+  max-width: 480px;
   height: 512px;
 }
 
 /* Toolbar */
+body.menu .toolbar {
+
+  padding-top: 6px;
+  height:48px
+}
 
 .toolbar {
   position: sticky;
