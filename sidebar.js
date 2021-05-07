@@ -19,7 +19,6 @@ chrome.tabs.getCurrent((sidebar) => {
   } else {
     isMenuMode = true;
     document.body.classList.add("menu")
-    document.body.style.height = window.screen.availHeight;
   }
 });
 
@@ -270,6 +269,7 @@ document.addEventListener("dragstart", function( event ) {
     dt.setDragImage(draggedItem, 24,12);
     dt.setData("text/uri-list", url);
     dt.setData("text/plain", url);
+
   })
 
 document.addEventListener("dragenter", function( event ) {
@@ -431,7 +431,7 @@ function showMenu() {
 
 
 var windows = []
-function updateTabs(...args) {
+function updateWindows(...args) {
   //console.log("update", this, args)
   var b = {}
   var groupId = undefined;
@@ -460,29 +460,29 @@ function updateGroup(tabGroup) {
   m.redraw();
 }
 
-chrome.tabs.onActivated.addListener(updateTabs.bind("tabs.onActivated"));
-chrome.tabs.onAttached.addListener(updateTabs.bind("tabs.onAttached"));
-chrome.tabs.onCreated.addListener(updateTabs.bind("tabs.onCreated"));
-chrome.tabs.onDetached.addListener(updateTabs.bind("tabs.onDetached"));
-chrome.tabs.onHighlighted.addListener(updateTabs.bind("tabs.onHighlighted"));
-chrome.tabs.onMoved.addListener(updateTabs.bind("tabs.onMoved"));
-chrome.tabs.onRemoved.addListener(updateTabs.bind("tabs.onRemoved"));
-chrome.tabs.onReplaced.addListener(updateTabs.bind("tabs.onReplaced"));
+chrome.tabs.onActivated.addListener(updateWindows.bind("tabs.onActivated"));
+chrome.tabs.onAttached.addListener(updateWindows.bind("tabs.onAttached"));
+chrome.tabs.onCreated.addListener(updateWindows.bind("tabs.onCreated"));
+chrome.tabs.onDetached.addListener(updateWindows.bind("tabs.onDetached"));
+chrome.tabs.onHighlighted.addListener(updateWindows.bind("tabs.onHighlighted"));
+chrome.tabs.onMoved.addListener(updateWindows.bind("tabs.onMoved"));
+chrome.tabs.onRemoved.addListener(updateWindows.bind("tabs.onRemoved"));
+chrome.tabs.onReplaced.addListener(updateWindows.bind("tabs.onReplaced"));
 chrome.tabs.onUpdated.addListener(updateTab);
-chrome.tabGroups.onCreated.addListener(updateTabs.bind(""));
-chrome.tabGroups.onMoved.addListener(updateTabs.bind(""));
-chrome.tabGroups.onRemoved.addListener(updateTabs.bind(""));
+chrome.tabGroups.onCreated.addListener(updateWindows.bind(""));
+chrome.tabGroups.onMoved.addListener(updateWindows.bind(""));
+chrome.tabGroups.onRemoved.addListener(updateWindows.bind(""));
 chrome.tabGroups.onUpdated.addListener(updateGroup);
-chrome.windows.onCreated.addListener(updateTabs.bind(""));
-chrome.windows.onRemoved.addListener(updateTabs.bind(""));
+chrome.windows.onCreated.addListener(updateWindows.bind(""));
+chrome.windows.onRemoved.addListener(updateWindows.bind(""));
 chrome.windows.onFocusChanged.addListener((w) => {
   if (w != myWindowId && w > 0) {
     lastWindowId = w;
-    updateTabs();
+    updateWindows();
   }
 });
 
-updateTabs()
+updateWindows()
 
 
 
@@ -577,7 +577,7 @@ var WindowList = function(vnode) {
   return {
     view: function(vnode) {
       if (!vnode.attrs.windows.length) return "";
-      return vnode.attrs.windows.map(w => { return m(Window, {window:w, key:w.id})})
+      return m('div.windows#windows', vnode.attrs.windows.map(w => { return m(Window, {window:w, key:w.id})}));
       
     }
   }
@@ -900,10 +900,12 @@ var TabGroup = function(vnode) {
       let lastTab = {};
       let openerStack = [];
 
-      group.tabs.forEach((tab, i) => {
+      let tabs = group.tabs;
+      tabs.forEach((tab, i) => {
         let isQuery = tab.url.startsWith("https://www.google.com/search")
         if (isQuery) tab.isQuery = true;
 
+        i 
         let opener = tab.openerTabId || tabOpeners[tab.id];
         if (opener) {
           if (!tabOpeners[tab.id]) {

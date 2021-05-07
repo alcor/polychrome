@@ -18,15 +18,15 @@ body {
   color: var(--text-color);
   margin: 0;
   font-size: 11px;
-  min-height: 100%;
   display: flex;
   flex-direction: column;
+  min-height:100vh;
 }
 
 body.menu {
   min-width: 320px;
-  max-width: 480px;
-  height: 512px;
+  max-width: 320px;
+  height: 600px;
 }
 
 /* Toolbar */
@@ -99,15 +99,16 @@ input#search:focus {
 /* menu */
 
 div.menu {
-  background: var(--toolbar-color);
+  background: var(--background-color);
   padding: 8px 0;
-  box-shadow: 0 3px 6px rgba(0,0,0,0.16), 0 2px 4px rgba(0,0,0,0.23);
-  width: auto;
+  box-shadow: 0 10px 20px rgb(0 0 0 / 8%), 0 0.5px 1px 0.5px rgb(0 0 0 / 26%);
   position: absolute;
-  border-radius: 2px;
-  display: none;
-  min-width:100px;
-  z-index:20;
+  border-radius: 4px;
+  min-width: 100px;
+  font-size:12px;
+  z-index: 20;
+  display:none;
+  user-select: none;
 }
 
 .button div.menu {
@@ -129,7 +130,7 @@ div.menu .action span {
 
 div.menu > div {
   text-overflow: ellipsis;
-  padding: 6px 12px 6px 16px;
+  padding: 6px 16px 6px 16px;
 }
 
 div.menu > div.disabled {
@@ -172,6 +173,11 @@ div.menu.visible {
   animation: load8 1.1s infinite linear;
 }
 
+.windows {
+  /* column-count:3;
+  column-gap:1px; */
+  flex:1 0 auto;
+}
 .window > .title {
   padding-left: .3em;
   font-weight: 800;
@@ -200,7 +206,7 @@ div.menu.visible {
   border-radius: 3px;
   background-color: transparent;
   border-bottom:1px solid var(--stroke-color);
-
+  break-inside: avoid;
 }
 
 
