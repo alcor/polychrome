@@ -399,6 +399,7 @@ window.onkeydown = function(event) {
     return false;
   }
 }
+
 function closeTab() {
   chrome.tabs.query({highlighted:true, windowId: lastWindowId})
   .then((tabs) => {
@@ -431,6 +432,14 @@ function showMenu() {
 
 
 var windows = []
+function sortWindows(w1,w2) {
+  let i, j;
+  for (i = 0; i < w1.tabs.length; i++) { if (!w1.tabs[i].pinned) break; }
+  for (j = 0; j < w1.tabs.length; j++) { if (!w2.tabs[j].pinned) break; }
+  
+  if (j - i == 0) return w2.tabs.length - w1.tabs.length;
+  return j - i;
+}
 function updateWindows(...args) {
   //console.log("update", this, args)
   var b = {}
@@ -439,6 +448,7 @@ function updateWindows(...args) {
   var groupEl = undefined;
   chrome.windows.getAll({populate:true, windowTypes:['normal']}, w => {
     windows = w;
+    windows.sort(sortWindows);
     if (!lastWindowId) lastWindowId = windows[0].id;
     m.redraw();
   });
@@ -684,15 +694,13 @@ var ContextMenu = function(vnode) {
   return {
      view: function(vnode) {
       if (!contextTarget) return undefined;
-
-      
        let item = contextTarget;
        let isTab = contextTarget.groupId != undefined;
        let e = contextEvent;
        let target = e.target.closest("[index]");
        let style = {}
        var rect = target.getBoundingClientRect();
-       style.top = (rect.bottom - 2) + "px";
+       style.top = window.scrollY + (rect.bottom - 2) + "px";
        if (e.clientX < window.innerWidth / 2) {
         style.left = e.clientX + "px";
        } else {
@@ -702,7 +710,10 @@ var ContextMenu = function(vnode) {
        if (isTab) {
         return m("div.menu#contextmenu", {class:'visible', style:style},
           m('div.action.group-tabs', {title:'Group', onclick:groupTabs.bind(item)},
-            m('span.material-icons',"layers"), 'Group Tabs')//,
+            m('span.material-icons',"layers"), 'Group Tabs'),
+            m('div.action.archive', {title:'Archive', onclick:archiveTab.bind(item)}, 
+              m('span.material-icons',"save_alt"), "Archive"),
+            m('div.action.close', {onclick: close.bind(item)}, m('span.material-icons',"close"), "Close")
           // m('div.action.popout', {title:'Pop Out', onclick:popOutTab.bind(item)},
           //   m('span.material-icons',"open_in_new"), 'Move to new window')
         );
@@ -905,7 +916,7 @@ var TabGroup = function(vnode) {
         let isQuery = tab.url.startsWith("https://www.google.com/search")
         if (isQuery) tab.isQuery = true;
 
-        i 
+        
         let opener = tab.openerTabId || tabOpeners[tab.id];
         if (opener) {
           if (!tabOpeners[tab.id]) {
@@ -917,6 +928,14 @@ var TabGroup = function(vnode) {
             
               //console.log(opener, lastTab.id, lastTab.openerTabId, lastTab.isQuery, lastTab.indented, tab.title);
               tab.indent = 2;
+          }
+        }
+
+        if (tabs[i+1]) {
+          let nextTab = tabs[i+1]
+          let nextOpener = nextTab.openerTabId || tabOpeners[nextTab.id];
+          if (isQuery && tabs[i+1] && (tabs[i+1].openerTabId == tab.id)) {
+            tab.indent = 0;
           }
         }
 
@@ -1000,7 +1019,7 @@ var Tab = function(vnode) {
       } else {
          host = tab.url ? new URL(tab.url).hostname : tab.url;
       }
-
+      
       let favIconUrl = tab.favIconUrl || favicons[host] || (host && host.length ?`https://www.google.com/s2/favicons?domain=${host}` : undefined)
 
       var classList = [];
@@ -1013,10 +1032,12 @@ var Tab = function(vnode) {
       if (tab.discarded) classList.push('discarded');
       if (tab.highlighted) classList.push('highlighted');
       if (tab.isQuery && simplifyTitles) classList.push('query');
-      if (tab.indent) {
+      if (tab.indent != undefined) {
         classList.push('indent-' + tab.indent);
       }
 
+
+      if (contextTarget && (tab.id == contextTarget.id)) classList.push("showingMenu");
       let titles = titleForTab(tab)
 
       if (activeQuery) {
@@ -1026,6 +1047,13 @@ var Tab = function(vnode) {
         }
       }
       
+      let emojicon = undefined;
+      let match = titles.title.match(/(\p{Extended_Pictographic}+)/u)
+      if ( match ) {
+        console.log (match)
+        emojicon = match[1];// runes(match[1]);
+        titles.title = titles.title.replace(match[1], "")
+      }
 
       let attrs = {
         id: tab.id,
@@ -1047,7 +1075,7 @@ var Tab = function(vnode) {
           
           m('div.action.close', {onclick: close.bind(tab)}, m('span.material-icons',"close"))
         ),
-        m('img.icon', {src: favIconUrl}),
+        emojicon ? m('span.icon', emojicon) : m('img.icon', {src: favIconUrl}),
         m('div.title', titles.title, titles.app ? m('span.app', " • " + titles.app) : undefined)
       )
     }

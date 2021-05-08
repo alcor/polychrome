@@ -249,10 +249,19 @@ div.menu.visible {
   width:16px;
   height:16px;
   margin-right:8px;
-
   transform: scale(1);
   transition:transform 200ms;
+  font-size:16px;
+  line-height:16px;
 }
+
+.tab.pinned .icon {
+  font-size:24px;
+  line-height:24px;
+}
+
+
+
 .tab .app {
   display:none;
 }
@@ -336,7 +345,8 @@ div.menu.visible {
 
 .group > .header:hover,
 .group > .header.showingMenu,
-.tab:hover {
+.tab:hover,
+.tab.showingMenu {
   background-color: var(--accent-highlight, --hover-color);
 }
 
@@ -393,6 +403,10 @@ div.menu.visible {
 .tab.query .title {
   font-weight: 600;
   opacity: 0.9;
+}
+
+.tab.indent-0 {
+  
 }
 
 .tab.indent-1 {
@@ -491,13 +505,17 @@ div.menu.visible {
 }
 
 .group:not(.collapsed) .tab.query {
+}
+.group:not(.collapsed) .tab.indent-0 {
+  font-weight: bold !important;
+  background-image: none !important;
+
   margin-top: 2px;
   margin-bottom:-2px;
   background-image: none !important;
-  font-weight: bold !important;
   padding-left: 18px;
 }
-.group:not(.collapsed) .tab.query .icon,
+.group:not(.collapsed) .tab.indent-0 .icon,
 .group:not(.collapsed) .tab.host-chrome .icon {
   display:none;
 }
