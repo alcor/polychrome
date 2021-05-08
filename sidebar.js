@@ -451,8 +451,25 @@ function updateWindows(...args) {
     windows.sort(sortWindows);
     if (!lastWindowId) lastWindowId = windows[0].id;
     m.redraw();
+
+    if (this == 'tabs.onActivated') {
+      let id = args[0].tabId;
+      let el = document.getElementById(id);
+      scrollToElement(el);
+    }
   });
   return;
+}
+
+function scrollToElement(el) {
+  var rect = el.getBoundingClientRect();
+  var elemTop = rect.top;
+  var elemBottom = rect.bottom;
+
+  // Only completely visible elements return true:
+  var isVisible = (elemTop >= 0) && (elemBottom <= window.innerHeight);
+
+  el.scrollIntoView({behavior: "smooth", block: "nearest"});
 }
 
 function updateTab(tabId, changeInfo, tab) {
