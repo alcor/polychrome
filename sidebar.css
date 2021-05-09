@@ -590,14 +590,18 @@ div.menu.visible {
 /* Tabs */
 
 .tab .actions {
-  margin-left: -6px;
+  margin-left: 0px;
   margin-right: 0px
 }
 
 .tab:not(:hover) .actions {
+  display:none;
   opacity: 0.0;
-  margin-right: -2px;
 }
+.tab:not(:hover) {
+ padding-right:16px;
+}
+
 
 .actions {
   float: right;
