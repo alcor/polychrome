@@ -169,6 +169,7 @@ div.menu.visible {
   /* column-count:3;
   column-gap:1px; */
   flex:1 0 auto;
+  overflow-x:hidden;
 }
 .window > .title {
   padding-left: .3em;
@@ -286,7 +287,7 @@ div.menu.visible {
 
 .tab {
   padding: 0 0 0 16px;
-  transition: width 130ms ease-out;
+  /* transition: width 130ms ease-out; */
   min-width: 38px;
   box-sizing: border-box;
   width: 100%;
@@ -415,21 +416,30 @@ div.menu.visible {
 
 .tab.indent-0 .icon,
 .tab.query .icon {
-  display:none;
+  /* display:none; */
+  visibility:hidden;
 }
 
 .tab.indent-1 {
   
 }
 
-.tab.indent-2 {
-  padding-left: 32px;
-  width: calc(100% - 32px);
+.tab.indent-2,
+.tab.indent-3,
+.tab.indent-4,
+.tab.indent-5,
+.tab.indent-6 {
+  /* padding-left: 32px;
+  width: calc(100% - 32px); */
 
 }
 
-.tab.indent-3 {
-  padding-left: 24px;
+
+.tab.cluster-start {
+  margin-top:8px;
+}
+.tab.cluster-end {
+  margin-bottom:8px;
 }
 
 .tab.pinned {
@@ -449,8 +459,6 @@ div.menu.visible {
   padding: 0 0 0 4px;
   border-left: 4px solid transparent;
   border-color: var(--accent-light, transparent);
-  display: flex;
-  flex-wrap: wrap;
 }
 
 
@@ -492,6 +500,9 @@ div.menu.visible {
   flex-direction:row;
   flex-wrap:nowrap;
   overflow:hidden;
+  display: flex;
+  flex-wrap: wrap;
+
 }
 .group.collapsed .actions {
   display:none;
@@ -511,18 +522,14 @@ div.menu.visible {
   display:none;
 }
 
-.tab.indent-0 {
-  margin-left: 24px;
-}
-
 .group:not(.collapsed) .tab.query {
 }
 .group:not(.collapsed) .tab.indent-0 {
   font-weight: bold !important;
   background-image: none !important;
-
+/* 
   margin-top: 2px;
-  margin-bottom:-2px;
+  margin-bottom:-2px; */
   background-image: none !important;
   padding-left: 18px;
 }

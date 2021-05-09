@@ -434,8 +434,8 @@ function showMenu() {
 var windows = []
 function sortWindows(w1,w2) {
   let i, j;
-  for (i = 0; i < w1.tabs.length; i++) { if (!w1.tabs[i].pinned) break; }
-  for (j = 0; j < w1.tabs.length; j++) { if (!w2.tabs[j].pinned) break; }
+  for (i = 0; i < w1.tabs.length; i++) { if (!w1.tabs[i] || !w1.tabs[i].pinned) break; }
+  for (j = 0; j < w1.tabs.length; j++) { if (!w2.tabs[j] || !w2.tabs[j].pinned) break; }
   
   if (j - i == 0) return w2.tabs.length - w1.tabs.length;
   return j - i;
@@ -473,7 +473,7 @@ function scrollToElement(el) {
 }
 
 function updateTab(tabId, changeInfo, tab) {
-  console.debug("Tab updated", tabId, changeInfo, tab)
+  
   for (var w of windows) {
     if (w.id == tab.windowId) {
       w.tabs[tab.index] = tab;
@@ -894,6 +894,10 @@ function newTabInGroup(e) {
   )
 }
 
+function openerForTab(tab) {
+  return tab.openerTabId || tabOpeners[tab.id];
+}
+
 var TabGroup = function(vnode) {
   function onclick (e) {
     chrome.tabGroups.update(this.id, { 'collapsed': !this.info.collapsed });
@@ -935,25 +939,26 @@ var TabGroup = function(vnode) {
 
         
         let opener = tab.openerTabId || tabOpeners[tab.id];
+
+        let index = openerStack.indexOf(opener);
+        if (isQuery) index = -1;
+        if (index == -1 && (lastTab.indent > 1)) {
+          lastTab.endOfCluster = true;
+        }
+        openerStack.splice(index + 1)
+        tab.indent = isQuery ? 0 : openerStack.length + 1;
+
+        if (lastTab.id == openerStack[0]) {
+          lastTab.startOfCluster = true;
+        }
+        openerStack.push(tab.id);
+  
+        tab.openerStack = openerStack.join(".")
         if (opener) {
           if (!tabOpeners[tab.id]) {
             tabOpeners[tab.id] = tab.openerTabId;
             saveOpeners();
           } 
-          if ((opener == lastTab.id && !lastTab.isQuery)
-              || (opener == lastTab.openerTabId && lastTab.indent)) {
-            
-              //console.log(opener, lastTab.id, lastTab.openerTabId, lastTab.isQuery, lastTab.indented, tab.title);
-              tab.indent = 2;
-          }
-        }
-
-        if (tabs[i+1]) {
-          let nextTab = tabs[i+1]
-          let nextOpener = nextTab.openerTabId || tabOpeners[nextTab.id];
-          if (isQuery && tabs[i+1] && (tabs[i+1].openerTabId == tab.id)) {
-            tab.indent = 0;
-          }
         }
 
         lastTab = tab;
@@ -1048,6 +1053,8 @@ var Tab = function(vnode) {
       if (tab.audible) classList.push('audible');
       if (tab.discarded) classList.push('discarded');
       if (tab.highlighted) classList.push('highlighted');
+      if (tab.startOfCluster) classList.push('cluster-start');
+      if (tab.endOfCluster) classList.push('cluster-end');
       if (tab.isQuery && simplifyTitles) classList.push('query');
       if (tab.indent != undefined) {
         classList.push('indent-' + tab.indent);
@@ -1085,6 +1092,7 @@ var Tab = function(vnode) {
       attrs.onclick = onclick.bind(tab)
       attrs.draggable = true;
       
+      //titles.title = `${tab.openerStack} - ${titles.title}`
       return m('div.tab', attrs,
         m('div.loader'),
         m('div.actions',
