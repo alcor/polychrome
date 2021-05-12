@@ -156,7 +156,11 @@ function sortTabs(type) {
         for (var cluster in groups) {
             let tabIds = groups[cluster];
             if (tabIds.length <= 1) continue;
-            let name = cluster;
+            let components = cluster.split(".");
+            if (components[0] == "www") components.shift();
+            components.pop();
+            let name = components.reverse().join(" • ");
+
             chrome.tabs.group({tabIds:tabIds, createProperties:{windowId:w.id}})
             .then(group => { chrome.tabGroups.update(group, {title: name})})
           }
@@ -558,12 +562,13 @@ var Toolbar = function(vnode) {
         m('div.button',
           m('span.material-icons','sort'),
           m('div.sort.menu',
-            m('div', {onclick:() => { sortTabs('domain') }}, "Sort by Domain"),
+          m('div', {onclick:() => { removeDuplicates() }}, "Remove Duplicates"),
+          m('div', {onclick:() => { discardAllTabs() }}, "Unload all tabs"),
+          m('hr'),
+
+          m('div', {onclick:() => { sortTabs('domain') }}, "Sort by Domain"),
             //m('div.disabled', {onclick:() => { sortTabs('type') }}, "Sort by Type"),
             m('div', {onclick:() => { sortTabs('title') }}, "Sort by Title"),
-            m('hr'),
-            m('div', {onclick:() => { removeDuplicates() }}, "Remove Duplicates"),
-            m('div', {onclick:() => { discardAllTabs() }}, "Unload all tabs"),
             //m('div.disabled', {onclick:() => { discardAllTabs() }}, "Combine Windows"),
             m('hr'),
             m('div', {class: preserveGroups,
@@ -736,16 +741,20 @@ var ContextMenu = function(vnode) {
         );
        } else {
         return m("div.menu#contextmenu", {class:'visible', style:style},
-          m('div.action.ungroup', {title:'Ungroup', onclick:ungroupGroup.bind(item)},
-            m('span.material-icons',"layers_clear"), 'Ungroup'),
-          m('div.action.rename', {title:'Ungroup', onclick:renameGroup.bind(item)},
-            m('span.material-icons',"edit"), 'Rename'),
-          m('div.action.popout', {title:'Open in new window', onclick:popOutGroup.bind(item)},
-            m('span.material-icons',"open_in_new"), 'Move to new window'),
           m('div.action.archive', {title:'Archive', onclick:archiveGroup.bind(item)},
             m('span.material-icons',"save_alt"), "Archive group"),
           m('div.action.close', {title:'Close', onclick:closeGroup.bind(item)},
-            m('span.material-icons',"close"), 'Close group')
+            m('span.material-icons',"close"), 'Close group'),
+            m('hr'),
+
+          m('div.action.popout', {title:'Open in new window', onclick:popOutGroup.bind(item)},
+            m('span.material-icons',"open_in_new"), 'Move to new window'),
+          m('div.action.ungroup', {title:'Ungroup', onclick:ungroupGroup.bind(item)},
+            m('span.material-icons',"layers_clear"), 'Ungroup'),
+          m('div.action.rename', {title:'Rename', onclick:renameGroup.bind(item)},
+            m('span.material-icons',"edit"), 'Rename'),
+
+
           );
       }
 
@@ -797,13 +806,14 @@ function archiveGroup(e) {
   getBookmarkRoot()
   .then(rootId => {
     console.log("got id", rootId, group)
-    return chrome.bookmarks.create({parentId: rootId, title: title})
+    // return chrome.bookmarks.create({parentId: rootId, title: title})
   })
   .then((folder) => {
     let promises = [];
-
-    chrome.bookmarks.create({parentId: "1", title: fancyTitle, url:chrome.runtime.getURL(`open.html?id=${folder.id}&color=${group.info.color}`)})
-      group.tabs.forEach(tab => {
+    let urlArray = group.tabs.map(tab => {return tab.url;})
+    urlArray = encodeURIComponent(JSON.stringify(urlArray))
+    return chrome.bookmarks.create({parentId: "1", title: fancyTitle, url:chrome.runtime.getURL(`open.html?title=${group.info.title}&color=${group.info.color}&urls=${urlArray}`)})
+    group.tabs.forEach(tab => {
       promises.push(chrome.bookmarks.create({parentId: folder.id, title: tab.title, url: tab.url}))
     })
     return Promise.all(promises);

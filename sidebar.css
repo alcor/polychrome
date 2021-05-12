@@ -501,7 +501,7 @@ div.menu.visible {
   flex-wrap:nowrap;
   overflow:hidden;
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap:nowrap;
 
 }
 .group.collapsed .actions {
@@ -512,6 +512,7 @@ div.menu.visible {
 .group.collapsed > .header {
   max-width:auto;
   flex:1 0 0;
+  position:unset;
 }
 
 .group.collapsed:hover > .header {
