@@ -481,7 +481,7 @@ function updateTab(tabId, changeInfo, tab) {
   for (var w of windows) {
     if (w.id == tab.windowId) {
       w.tabs[tab.index] = tab;
-      m.redraw();
+      if (changeInfo.groupId != -1) m.redraw();
       return;
     }
   }
