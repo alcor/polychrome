@@ -394,15 +394,17 @@ console.log("key", event.key)
     let direction = event.key == "ArrowDown" ? 1 : -1;
     event.preventDefault();
 
-    let tabs = document.querySelectorAll(".tab")
-    tabs = Array.from(tabs);
-    console.log("tabs", tabs)
-    let index = tabs.findIndex(t => t.classList.contains("active"))
-    console.log("index", index)
-
-    index = index + direction;
-    let tab = tabs[index];
-    focusTab(parseInt(tab.getAttribute("id")))
+    if(!isMenuMode) {
+      let tabs = document.querySelectorAll(".tab")
+      tabs = Array.from(tabs);
+      console.log("tabs", tabs)
+      let index = tabs.findIndex(t => t.classList.contains("active"))
+      console.log("index", index)
+  
+      index = index + direction;
+      let tab = tabs[index] || tabs[0];
+      focusTab(parseInt(tab.getAttribute("id")))
+    }
   } 
 
   if (event.metaKey && event.keyCode == 't') { // C-T

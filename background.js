@@ -3,9 +3,10 @@ chrome.runtime.onInstalled.addListener(function() {
   console.log("Astrolabe Installed");
 });
 
-chrome.commands.onCommand.addListener(function(command) {
-  focusSidebar();
-});
+
+chrome.commands.onCommand.addListener(focusSidebar);
+chrome.action.onClicked.addListener(focusSidebar);
+
 
 const DEFAULT_WIDTH = 256
 async function focusSidebar() {
