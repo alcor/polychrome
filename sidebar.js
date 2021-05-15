@@ -764,7 +764,7 @@ var ContextMenu = function(vnode) {
             m('span.material-icons',"open_in_new"), 'Move to new window'),
           m('div.action.ungroup', {title:'Ungroup', onclick:ungroupGroup.bind(item)},
             m('span.material-icons',"layers_clear"), 'Ungroup'),
-          m('div.action.rename', {title:'Rename', onclick:editGroup.bind(item)},
+          m('div.action.rename', {title:'Rename', onclick:editGroup.bind(item.id)},
             m('span.material-icons',"edit"), 'Rename'),
 
 
@@ -881,13 +881,16 @@ function ungroupGroup(e) {
 function groupTabs(e) {
   e.stopPropagation();
   clearContext();
-  let title = prompt("New Group")
+  //let title = prompt("New Group")
   let windowID = this ? this.windowId : lastWindowId;
-  if (title) {
+  if (true) {
     chrome.tabs.query({highlighted:true, windowId:windowID})
     .then(tabs => {
       chrome.tabs.group({tabIds:tabs.map(t => t.id), createProperties:{windowId:windowID}})
-      .then(group => { chrome.tabGroups.update(group, {title: title})})
+      .then(group => { 
+        setTimeout(editGroup.bind(group), 50);
+//        chrome.tabGroups.update(group, {title: title})
+      })
     })
   }
 }
@@ -899,10 +902,10 @@ function popOutTab(e){
 
  
 function editGroup(e) {
-  e.stopPropagation();
+  if (e) e.stopPropagation();
   clearContext();
-  groupBeingEdited = this.id;
-  document.getElementById(this.id + "title").focus();
+  groupBeingEdited = this;
+  document.getElementById(this + "title").focus();
   document.execCommand('selectAll',false,null)
   // let title = prompt("Rename Group", this.info.title)
   // if (title) chrome.tabGroups.update(this.id, {title: title})
@@ -1013,7 +1016,7 @@ var TabGroup = function(vnode) {
       return m('div.group', {class:classList.join(" "), style:`flex-grow:${height}`},
         m('div.header', attrs,
           m('div.actions',
-          m('div.action.edit', {title:'Rename', onclick:editGroup.bind(group)}, m('span.material-icons',"edit")),
+          m('div.action.edit', {title:'Rename', onclick:editGroup.bind(group.id)}, m('span.material-icons',"edit")),
           m('div.action.newtab', {title:'New tab in group', onclick:newTabInGroup.bind(group)}, m('span.material-icons',"add_circle_outline")),
           m('div.action.more', {title:'Menu', onclick:showContextMenu.bind(group)}, m('span.material-icons',"more_vert"))
           ),

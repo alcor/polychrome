@@ -17,17 +17,17 @@
     "default_popup": "sidebar.html"
   },
   "commands": {
-    "toggle-feature-foo": {
+    "focus_sidebar": {
       "suggested_key": {
-        "default": "Ctrl+Shift+A",
-        "mac": "Command+Shift+A"
+        "default": "Ctrl+Shift+S",
+        "mac": "Command+Shift+S"
       },
-      "description": "Activate in window"
+      "description": "Activate Sidebar"
     },
     "_execute_action": {
       "suggested_key": {
-        "default": "Ctrl+Shift+L",
-        "mac": "Command+Shift+L"
+        "default": "Ctrl+Shift+A",
+        "mac": "Command+Shift+A"
       }
     }
   },
