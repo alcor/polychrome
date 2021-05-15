@@ -376,7 +376,8 @@ document.addEventListener("dragend", function( event ) {
 
 window.onkeydown = function(event) {
 
-  if (event.metaKey && event.keyCode == 84) { // C-T
+
+  if (event.metaKey && event.keyCode == 't') { // C-T
     chrome.windows.update(lastWindowId, { "focused": true })
     .then((wind) => {
       chrome.tabs.create({windowId:lastWindowId})
@@ -385,9 +386,13 @@ window.onkeydown = function(event) {
       })
     })  
     event.preventDefault(); 
-  } else if(event.metaKey && event.keyCode == 83) {  // C-S
+  } else if(event.metaKey && event.key == 's') {  // C-S
     event.preventDefault(); 
-  } else if(event.metaKey && event.keyCode == 82) {  // C-R
+  } else if(event.metaKey && event.key == 'g') {  // C-G
+    groupTabs(event);
+    event.preventDefault(); 
+    event.stopPropagation();
+  } else if(event.metaKey && event.key == 'r') {  // C-R
     let options = event.shiftKey ? {} : undefined;
     chrome.tabs.query({highlighted:true, windowId: lastWindowId})
     .then((tabs) => {
@@ -401,6 +406,15 @@ window.onkeydown = function(event) {
     event.preventDefault();     
     closeTab();
     return false;
+  }
+  if (event.key == "Enter" && event.target != document.body) { 
+    let header = event.target.closest('.header');
+    let gid = parseInt(header.getAttribute("gid"));
+    chrome.tabGroups.update(gid, {title: event.target.innerText.trim()})
+    event.target.blur();
+    groupBeingEdited = undefined;
+    event.preventDefault();
+    event.stopPropagation();
   }
 }
 
@@ -439,8 +453,7 @@ var windows = []
 function sortWindows(w1,w2) {
   let i, j;
   for (i = 0; i < w1.tabs.length; i++) { if (!w1.tabs[i] || !w1.tabs[i].pinned) break; }
-  for (j = 0; j < w1.tabs.length; j++) { if (!w2.tabs[j] || !w2.tabs[j].pinned) break; }
-  
+  for (j = 0; j < w1.tabs.length; j++) { if (!w2.tabs[j] || !w2.tabs[j].pinned) break; } 
   if (j - i == 0) return w2.tabs.length - w1.tabs.length;
   return j - i;
 }
@@ -751,7 +764,7 @@ var ContextMenu = function(vnode) {
             m('span.material-icons',"open_in_new"), 'Move to new window'),
           m('div.action.ungroup', {title:'Ungroup', onclick:ungroupGroup.bind(item)},
             m('span.material-icons',"layers_clear"), 'Ungroup'),
-          m('div.action.rename', {title:'Rename', onclick:renameGroup.bind(item)},
+          m('div.action.rename', {title:'Rename', onclick:editGroup.bind(item)},
             m('span.material-icons',"edit"), 'Rename'),
 
 
@@ -868,12 +881,12 @@ function ungroupGroup(e) {
 function groupTabs(e) {
   e.stopPropagation();
   clearContext();
-
   let title = prompt("New Group")
+  let windowID = this ? this.windowId : lastWindowId;
   if (title) {
-    chrome.tabs.query({highlighted:true, windowId:this.windowId})
+    chrome.tabs.query({highlighted:true, windowId:windowID})
     .then(tabs => {
-      chrome.tabs.group({tabIds:tabs.map(t => t.id), createProperties:{windowId:this.windowId}})
+      chrome.tabs.group({tabIds:tabs.map(t => t.id), createProperties:{windowId:windowID}})
       .then(group => { chrome.tabGroups.update(group, {title: title})})
     })
   }
@@ -885,11 +898,24 @@ function popOutTab(e){
 
 
  
-function renameGroup(e) {
+function editGroup(e) {
   e.stopPropagation();
   clearContext();
-  let title = prompt("Rename Group", this.info.title)
-  if (title) chrome.tabGroups.update(this.id, {title: title})
+  groupBeingEdited = this.id;
+  document.getElementById(this.id + "title").focus();
+  document.execCommand('selectAll',false,null)
+  // let title = prompt("Rename Group", this.info.title)
+  // if (title) chrome.tabGroups.update(this.id, {title: title})
+}
+
+function groupRenameEvent(e) {
+  if (e.keyCode === 13) {
+    let group = this;
+    let title = e.target.innerText.trim();
+    console.log(title, e);
+
+    chrome.tabGroups.update(this.id, {title: title})
+  }
 }
 
 function newTabInGroup(e) {
@@ -908,6 +934,7 @@ function openerForTab(tab) {
   return tab.openerTabId || tabOpeners[tab.id];
 }
 
+let groupBeingEdited = undefined;
 var TabGroup = function(vnode) {
   function onclick (e) {
     chrome.tabGroups.update(this.id, { 'collapsed': !this.info.collapsed });
@@ -986,10 +1013,11 @@ var TabGroup = function(vnode) {
       return m('div.group', {class:classList.join(" "), style:`flex-grow:${height}`},
         m('div.header', attrs,
           m('div.actions',
-            m('div.action.newtab', {title:'New tab in group', onclick:newTabInGroup.bind(group)}, m('span.material-icons',"add_circle_outline")),
-            m('div.action.more', {title:'Menu', onclick:showContextMenu.bind(group)}, m('span.material-icons',"more_vert"))
+          m('div.action.edit', {title:'Rename', onclick:editGroup.bind(group)}, m('span.material-icons',"edit")),
+          m('div.action.newtab', {title:'New tab in group', onclick:newTabInGroup.bind(group)}, m('span.material-icons',"add_circle_outline")),
+          m('div.action.more', {title:'Menu', onclick:showContextMenu.bind(group)}, m('span.material-icons',"more_vert"))
           ),
-          m('div.title', title),
+          m('div.title', {id: group.id + "title", contenteditable:true}, m.trust(title)),
         ),
         children
       )

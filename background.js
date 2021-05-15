@@ -41,7 +41,7 @@ function removeDuplicates() {
           idsToRemove.push(tab.id)         
         }
       })
-      chrome.tabs.remove(idsToRemove);
+      chrome.tabs.remove(idsToRemove.reverse());
     })
   })
 }

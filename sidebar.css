@@ -5,6 +5,8 @@
 
 
 
+
+
 body {
   background: var(--surface-color);
   color: var(--text-color);
@@ -201,13 +203,12 @@ div.menu.visible {
   --surface-color: var(--surface-color);
   background-color: var(--surface-color);
   border-bottom:1px solid var(--surface-stroke-color);
-  break-inside: avoid;
 }
 
 
 .window, .tab, .group {
-
   scroll-margin-top: 48px;
+  position:relative;
 }
 
 
@@ -292,6 +293,7 @@ div.menu.visible {
   min-width: 38px;
   box-sizing: border-box;
   width: 100%;
+  break-inside: avoid;
 }
 
 .tab:not(.pinned) {
@@ -460,6 +462,8 @@ div.menu.visible {
   padding: 0 0 0 4px;
   border-left: 4px solid transparent;
   border-color: var(--accent-light, transparent);
+  break-inside: avoid;
+
 }
 
 
@@ -474,6 +478,8 @@ div.menu.visible {
   /* display:flex; */
   max-height: 32px;
   flex: 1 0 auto;
+  break-inside: avoid;
+
 }
 
 .group.no-group .header .actions,
@@ -506,18 +512,18 @@ div.menu.visible {
 
 }
 .group.collapsed .actions {
-  display:none;
+  /* display:none; */
 }
 
 
 .group.collapsed > .header {
-  max-width:auto;
+  /* max-width:auto;
   flex:1 0 0;
-  position:unset;
+  position:unset; */
 }
 
 .group.collapsed:hover > .header {
-  max-width:33%;
+  /* max-width:33%; */
 }
 
 .group.collapsed:not(:hover) .tab {
@@ -537,6 +543,27 @@ div.menu.visible {
 }
 .group:not(.collapsed) .tab.indent-0 .icon,
 .group:not(.collapsed) .tab.host-chrome .icon {
+  display:none;
+}
+
+.group.collapsed .tab .title,
+.group.collapsed .tab .actions {
+  display: none;
+}
+
+.group.collapsed > .header > .title {
+  padding-right: 0;
+}
+
+.group.collapsed .tab {
+  padding-right: 0;
+  padding-left: 24px;
+  padding: 4px;;
+  margin:0 0 0 12px;
+  min-width:16px;
+  width: 16px;
+  max-width: 16px;
+  border-radius:4px;
   display:none;
 }
 
@@ -564,28 +591,6 @@ div.menu.visible {
 
 .group.no-group .header .title {
   display: none;
-}
-
-
-.group.collapsed .tab .title,
-.group.collapsed .tab .actions {
-  display: none;
-}
-
-.group.collapsed > .header > .title {
-  padding-right: 0;
-}
-
-.group.collapsed .tab {
-  padding-right: 0;
-  padding-left: 24px;
-  padding: 4px;;
-  margin:0 0 0 12px;
-  min-width:16px;
-  width: 16px;
-  max-width: 16px;
-  border-radius:4px;
-  display: block
 }
 
 
@@ -652,11 +657,12 @@ div.menu.visible {
 .droptarget::before {
   content:"";
   height:2px;
-  width:calc(100% - 48px);
+  width:100%;
   position:absolute;
   margin-top:-24px;
-  left:28px;
+  left:0px;
   background-color: var(--text-color);
+  pointer-events: none;
 }
 
 .droptarget.after::before {
@@ -836,5 +842,46 @@ hr {
 
   .window.frontmost .tab.highlighted {
     background-color: var(--accent-dark, hsla(220, 78%, 76%,0.3));
+  }
+}
+
+
+@media only screen and (min-width: 512px) {
+  .windows {
+    column-count:2;
+    column-fill: auto;
+    column-gap:0px;
+    margin-top:8px;
+    height:calc(100vh - 100px);
+    margin: 8px 8px;
+  }
+  .window {
+    margin-left:8px;
+    border-radius:4px;
+    border:1px solid var(--surface-stroke-color);
+    margin-bottom: 8px;
+  }
+  .group > .header {
+    position:unset;
+  }
+  .group {
+    margin-bottom:8px;
+    margin: 0 0px 8px 0px;
+
+  }
+}
+@media only screen and (min-width: 768px) {
+  .windows {
+    column-count:3;
+  }
+}
+@media only screen and (min-width: 1024px) {
+  .windows {
+    column-count:4;
+  }
+}
+@media only screen and (min-width: 1280px) {
+  .windows {
+    column-count:5;
   }
 }
