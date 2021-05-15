@@ -4,13 +4,39 @@ chrome.runtime.onInstalled.addListener(function() {
 });
 
 chrome.commands.onCommand.addListener(function(command) {
-  console.log('Command:', command);
+  focusSidebar();
 });
+
+const DEFAULT_WIDTH = 256
+async function focusSidebar() {
+  let url = chrome.runtime.getURL("sidebar.html");
+  let tabs = await chrome.tabs.query({url:url});
+  console.log(tabs);
+  if (tabs.length) {
+    chrome.windows.update(tabs[0].windowId, {focused:true})
+  } else {
+    let win = await chrome.windows.getLastFocused({populate:true, windowTypes:['normal']})
+    console.log(win, url);
+    let adjustWindow = win.left < DEFAULT_WIDTH;
+    await chrome.windows.create({
+      url: url,
+      type: "popup",
+      width:256,
+      height:win.width,
+      top:win.top,
+      left:adjustWindow ? win.left : win.left - DEFAULT_WIDTH
+    });
+    if (adjustWindow) {
+      await chrome.windows.update(win.id, {width: win.width - DEFAULT_WIDTH, left:win.left + DEFAULT_WIDTH});
+    }
+  }
+}
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   let handlers = {
     restoreGroup: restoreGroup,
     reload: reload,
+    focusSidebar: focusSidebar,
     'removeDuplicates': removeDuplicates
   }
 

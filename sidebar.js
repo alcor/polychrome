@@ -35,6 +35,7 @@ document.addEventListener('DOMContentLoaded', function() {
 window.addEventListener("focus", function(event) { 
   var searchEl = document.getElementById("search");
   searchEl.focus();
+  document.execCommand('selectAll',false,null)
 }, false);
 
 window.addEventListener("click", function(event) { 
@@ -64,13 +65,19 @@ if (navigator.platform == 'MacIntel') {
 }
 
 var activeQuery = undefined;
+var activeQueryItems = undefined;
+var activeQueryIndex = 0;
+
 function searchInput(e) {
   if (!e) return;
-
-
   var query = e ? e.target.value : undefined;
   activeQuery = query;
-  m.redraw();
+  activeQueryItems = [];
+  activeQueryIndex = 0;
+  m.redraw.sync();
+
+  let tab = document.querySelector(".tab") 
+  focusTab(parseInt(tab.getAttribute("id")))
 }
 
 function searchKey(e) {
@@ -85,6 +92,10 @@ function searchKey(e) {
     let wid =  parseInt(tab.getAttribute('wid'))
     focusTab(id, wid, true);
     e.target.value = "";
+    activeQuery = ""
+    activeQueryItems = undefined
+    activeQueryIndex = 0;
+    m.redraw;
     return;
   }
 }
@@ -376,13 +387,30 @@ document.addEventListener("dragend", function( event ) {
 
 window.onkeydown = function(event) {
 
+console.log("key", event.key)
+
+
+  if (event.key == "ArrowUp" || event.key == "ArrowDown") {
+    let direction = event.key == "ArrowDown" ? 1 : -1;
+    event.preventDefault();
+
+    let tabs = document.querySelectorAll(".tab")
+    tabs = Array.from(tabs);
+    console.log("tabs", tabs)
+    let index = tabs.findIndex(t => t.classList.contains("active"))
+    console.log("index", index)
+
+    index = index + direction;
+    let tab = tabs[index];
+    focusTab(parseInt(tab.getAttribute("id")))
+  } 
 
   if (event.metaKey && event.keyCode == 't') { // C-T
     chrome.windows.update(lastWindowId, { "focused": true })
     .then((wind) => {
       chrome.tabs.create({windowId:lastWindowId})
-      .then ((tab) => {
-        
+      .then ((tab) => {    
+        chrome.windows.update(lastWindowId, { "focused": true })
       })
     })  
     event.preventDefault(); 
@@ -402,7 +430,7 @@ window.onkeydown = function(event) {
     });
     event.preventDefault(); 
   } else if ((event.key == "Backspace" && event.target == document.body)
-   || (event.metaKey && event.keyCode == 87)) { 
+     || (event.metaKey && event.key == 'w')) { 
     event.preventDefault();     
     closeTab();
     return false;
@@ -425,18 +453,11 @@ function closeTab() {
     chrome.tabs.remove(tabs.map(t => t.id))
   });
 }
+
 function popOutSidebar(id) {
-  chrome.windows.create({
-    url: chrome.runtime.getURL("sidebar.html"),
-    type: "popup",
-    width:256,
-    height:window.screen.availHeight,
-    top:0,
-    left:0
-  }, (w) => {
-    w.alwaysOnTop = true;
+  chrome.runtime.sendMessage({action:'focusSidebar'}, (response) => {
+    window.close();
   });
-  window.close();
 }
 
 function showMenu() {
@@ -1002,16 +1023,27 @@ var TabGroup = function(vnode) {
         }
 
         lastTab = tab;
+
+        if (activeQuery) {
+          if (!tab.title.toLowerCase().includes(activeQuery)) {
+            return;
+          }
+          if (activeQueryIndex == activeQueryItems.length) tab.activeResult = true;
+          console.log("t", tab.activeResult, tab.title)
+          activeQueryItems.push(tab.id);
+        }
         children.push(m(Tab, {tab}))
       })
       
-      if (collapsed) classList.push("collapsed");
+      if (collapsed && (activeQuery?.length <= 1)) classList.push("collapsed");
       let height = collapsed ? 0 : children.length + 1;
 
       attrs.draggable = true;
       attrs.index = group.tabs[0].index
 
       if (contextTarget && (group.id == contextTarget.id)) attrs.class = ("showingMenu");
+
+      if (activeQuery && !children.length) return;
 
       return m('div.group', {class:classList.join(" "), style:`flex-grow:${height}`},
         m('div.header', attrs,
@@ -1037,9 +1069,11 @@ let favicons = {
 
 function focusTab(id, wid, focusTheWindow) {
   chrome.tabs.update(id, { 'active': true });
-  if (wid != lastWindowId || focusTheWindow) chrome.windows.update(wid, { "focused": true }, () => {
-    if (myWindowId && !focusTheWindow) chrome.windows.update(myWindowId, { "focused": true })
-  })
+  if (wid && focusTheWindow) { 
+    if (wid != lastWindowId || focusTheWindow) chrome.windows.update(wid, { "focused": true }, () => {
+      if (myWindowId && !focusTheWindow) chrome.windows.update(myWindowId, { "focused": true })
+    })
+  }
 }
 
 var Tab = function(vnode) {
@@ -1088,12 +1122,12 @@ var Tab = function(vnode) {
       var classList = [];
       if (tab.pinned) classList.push('pinned')
       if (tab.active) classList.push('active')
+      if (tab.highlighted) classList.push('highlighted');
       if (host) classList.push("host-" + host.replace(/\./g,"-"))
       classList.push(tab.status)
 
       if (tab.audible) classList.push('audible');
       if (tab.discarded) classList.push('discarded');
-      if (tab.highlighted) classList.push('highlighted');
       if (tab.startOfCluster) classList.push('cluster-start');
       if (tab.endOfCluster) classList.push('cluster-end');
       if (tab.isQuery && simplifyTitles) classList.push('query');
@@ -1104,13 +1138,6 @@ var Tab = function(vnode) {
 
       if (contextTarget && (tab.id == contextTarget.id)) classList.push("showingMenu");
       let titles = titleForTab(tab)
-
-      if (activeQuery) {
-        if (!tab.title.toLowerCase().includes(activeQuery)) {
-          classList.push('filtered');
-          return undefined;
-        }
-      }
       
       let emojicon = undefined;
       let match = titles.title.match(/(\p{Extended_Pictographic}+)/u)
