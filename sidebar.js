@@ -582,7 +582,8 @@ var WindowManager = function(vnode) {
       return [
         m(Toolbar),
         m(WindowList, {windows:windows}),
-        m(ContextMenu)
+        m(ContextMenu),
+        m(ArchivedGroups)
       ] 
     }
   }
@@ -1104,6 +1105,26 @@ var TabGroup = function(vnode) {
     }
   }
 }
+
+let groupsInfo = [
+  {title:"Green", color:"pink"},
+{title:"Yellow", color:"pink"},
+{title:"Red", color:"pink"}];
+
+
+var ArchivedGroups = function(vnode) {
+  let restoreGroup = (group) => {
+    console.log("restore", group)
+  }
+  return {
+    view: function(vnode) {
+      return m('div.group-archive',
+        groupsInfo.map( g => m('div.group-token', {class:g.color, onclick:restoreGroup.bind(null,g)}, g.title))
+      )
+    }
+  }
+}
+
 
 var ColorPicker = function(vnode) {
   let selectColor = (gid, color) => {
