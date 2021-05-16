@@ -16,7 +16,8 @@
   },
   "action": {
     "default_icon": "img/tabs.png",
-    "default_title": "Astrolabe"
+    "default_title": "Astrolabe",
+    "default_popup": "sidebar.html"
   },
   "commands": {
     "focus_sidebar": {
