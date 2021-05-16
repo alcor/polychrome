@@ -861,7 +861,16 @@ function archiveGroup(e) {
     let promises = [];
     let urlArray = group.tabs.map(tab => {return tab.url;})
     urlArray = encodeURIComponent(JSON.stringify(urlArray))
-    return chrome.bookmarks.create({parentId: "1", title: fancyTitle, url:chrome.runtime.getURL(`open.html?title=${group.info.title}&color=${group.info.color}&urls=${urlArray}`)})
+    let links = group.tabs.map((tab) => `<a href="${tab.url}">${tab.title}</a>`)
+    //let url = chrome.runtime.getURL(`open.html?title=${group.info.title}&color=${group.info.color}&urls=${urlArray}`);
+    let style = ""
+    let html = `<title>${group.info.title}</title>
+    <h2 color="${group.info.color}>${group.info.title}</h2>
+    ${links.join('<p>')}
+    <style>body{max-width:30em;margin:10vh auto;font-family:system-ui;}</style>`
+  
+    let url = 'data:text/html,' + encodeURIComponent(html);
+    return chrome.bookmarks.create({parentId: "1", title: fancyTitle, url:url})
     group.tabs.forEach(tab => {
       promises.push(chrome.bookmarks.create({parentId: folder.id, title: tab.title, url: tab.url}))
     })
