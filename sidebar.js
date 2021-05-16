@@ -81,7 +81,7 @@ function searchInput(e) {
 }
 
 function searchKey(e) {
-  console.log("e",e)
+
   if (e.key == "Escape" && isMenuMode) {
     window.close();
     return;
@@ -163,18 +163,27 @@ function sortTabs(type) {
       //if (!preserveGroups) 
       chrome.tabs.ungroup(orderedIds)
       .then(() => {
+        var otherTabs = [];
         if (type == 'domain') {
-        for (var cluster in groups) {
+          for (var cluster in groups) {
             let tabIds = groups[cluster];
-            if (tabIds.length <= 1) continue;
-            let components = cluster.split(".");
-            if (components[0] == "www") components.shift();
-            components.pop();
-            let name = components.reverse().join(" • ");
+            if (tabIds.length > 1) {
+              let components = cluster.split(".");
+              if (components[0] == "www") components.shift();
+              components.pop();
+              let name = components.reverse().join(" • ");
 
-            chrome.tabs.group({tabIds:tabIds, createProperties:{windowId:w.id}})
-            .then(group => { chrome.tabGroups.update(group, {title: name})})
+              chrome.tabs.group({tabIds:tabIds, createProperties:{windowId:w.id}})
+              .then(group => { chrome.tabGroups.update(group, {title: name})})
+            } else {
+              otherTabs.push(tabIds[0])
+            }
           }
+
+          console.log("otherTabs", otherTabs)
+          chrome.tabs.group({tabIds:otherTabs, createProperties:{windowId:w.id}})
+          .then(gid => chrome.tabGroups.update(gid, {title: "Other"}))
+          .then(group => { console.log(group.id); chrome.tabGroups.move(group.id, {index:-1, windowId:w.id})})
         }
       })
     })
@@ -387,9 +396,7 @@ document.addEventListener("dragend", function( event ) {
 
 window.onkeydown = function(event) {
 
-console.log("key", event.key)
-
-
+  console.log("event", event)
   if (event.key == "ArrowUp" || event.key == "ArrowDown") {
     let direction = event.key == "ArrowDown" ? 1 : -1;
     event.preventDefault();
@@ -406,15 +413,12 @@ console.log("key", event.key)
       focusTab(parseInt(tab.getAttribute("id")))
     }
   } 
-
-  if (event.metaKey && event.keyCode == 't') { // C-T
-    chrome.windows.update(lastWindowId, { "focused": true })
-    .then((wind) => {
-      chrome.tabs.create({windowId:lastWindowId})
+  if (event.metaKey && event.key == 't') { // C-T
+    chrome.tabs.create({})
       .then ((tab) => {    
-        chrome.windows.update(lastWindowId, { "focused": true })
-      })
-    })  
+        console.log("tab", tab)
+        chrome.windows.update(tab.windowId, { "focused": true })
+      }) 
     event.preventDefault(); 
   } else if(event.metaKey && event.key == 's') {  // C-S
     event.preventDefault(); 
@@ -502,6 +506,7 @@ function updateWindows(...args) {
 }
 
 function scrollToElement(el) {
+  if (!el) return;
   var rect = el.getBoundingClientRect();
   var elemTop = rect.top;
   var elemBottom = rect.bottom;
@@ -602,7 +607,7 @@ var Toolbar = function(vnode) {
           m('div', {onclick:() => { discardAllTabs() }}, "Unload all tabs"),
           m('hr'),
 
-          m('div', {onclick:() => { sortTabs('domain') }}, "Sort by Domain"),
+          m('div', {onclick:() => { sortTabs('domain') }}, "Group by Domain"),
             //m('div.disabled', {onclick:() => { sortTabs('type') }}, "Sort by Type"),
             m('div', {onclick:() => { sortTabs('title') }}, "Sort by Title"),
             //m('div.disabled', {onclick:() => { discardAllTabs() }}, "Combine Windows"),
@@ -935,7 +940,7 @@ function editGroup(e) {
 }
 
 function groupRenameEvent(e) {
-  if (e.keyCode === 13) {
+  if (e.key == "Enter") {
     let group = this;
     let title = e.target.innerText.trim();
     console.log(title, e);
@@ -1050,9 +1055,10 @@ var TabGroup = function(vnode) {
       return m('div.group', {class:classList.join(" "), style:`flex-grow:${height}`},
         m('div.header', attrs,
           m('div.actions',
-          m('div.action.edit', {title:'Rename', onclick:editGroup.bind(group.id)}, m('span.material-icons',"edit")),
-          m('div.action.newtab', {title:'New tab in group', onclick:newTabInGroup.bind(group)}, m('span.material-icons',"add_circle_outline")),
-          m('div.action.more', {title:'Menu', onclick:showContextMenu.bind(group)}, m('span.material-icons',"more_vert"))
+            m('div.action.edit', {title:'Rename', onclick:editGroup.bind(group.id)}, m('span.material-icons',"edit")),
+            m('div.action.newtab', {title:'New tab in group', onclick:newTabInGroup.bind(group)}, m('span.material-icons',"add_circle_outline")),
+            m('div.action.more', {title:'Menu', onclick:showContextMenu.bind(group)}, m('span.material-icons',"more_vert"))
+            //m('div.action.archive', {title:'Menu', onclick:showContextMenu.bind(group)}, m('span.material-icons',"close"))
           ),
           m('div.title', {id: group.id + "title", contenteditable:true}, m.trust(title)),
         ),
