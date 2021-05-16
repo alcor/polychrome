@@ -461,7 +461,15 @@ function closeTab() {
 }
 
 function popOutSidebar(id) {
-  chrome.runtime.sendMessage({action:'focusSidebar'}, (response) => {
+  chrome.windows.create({
+    url: chrome.runtime.getURL("sidebar.html"),
+    type: "popup",
+    width:256,
+    height:window.screen.availHeight,
+    top:0,
+    left:0
+  }, (w) => {
+    w.alwaysOnTop = true;
     window.close();
   });
 }
