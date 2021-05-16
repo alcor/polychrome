@@ -395,8 +395,6 @@ document.addEventListener("dragend", function( event ) {
 
 
 window.onkeydown = function(event) {
-
-  console.log("event", event)
   if (event.key == "ArrowUp" || event.key == "ArrowDown") {
     let direction = event.key == "ArrowDown" ? 1 : -1;
     event.preventDefault();
@@ -540,9 +538,16 @@ function updateGroup(tabGroup) {
   m.redraw();
 }
 
+function tabCreated(tab) {
+  if (tab.pendingUrl == "chrome://newtab/") {
+    focusWindow(tab.windowId)
+  }
+  updateWindows();
+}
+
 chrome.tabs.onActivated.addListener(updateWindows.bind("tabs.onActivated"));
 chrome.tabs.onAttached.addListener(updateWindows.bind("tabs.onAttached"));
-chrome.tabs.onCreated.addListener(updateWindows.bind("tabs.onCreated"));
+chrome.tabs.onCreated.addListener(tabCreated);
 chrome.tabs.onDetached.addListener(updateWindows.bind("tabs.onDetached"));
 chrome.tabs.onHighlighted.addListener(updateWindows.bind("tabs.onHighlighted"));
 chrome.tabs.onMoved.addListener(updateWindows.bind("tabs.onMoved"));
@@ -861,15 +866,20 @@ function archiveGroup(e) {
     let promises = [];
     let urlArray = group.tabs.map(tab => {return tab.url;})
     urlArray = encodeURIComponent(JSON.stringify(urlArray))
-    let links = group.tabs.map((tab) => `<a href="${tab.url}">${tab.title}</a>`)
+    let links = group.tabs.map((tab) => `<p><a href="${tab.url}">${tab.title}</a>`)
     //let url = chrome.runtime.getURL(`open.html?title=${group.info.title}&color=${group.info.color}&urls=${urlArray}`);
     let style = ""
-    let html = `<title>${group.info.title}</title>
-    <h2 color="${group.info.color}>${group.info.title}</h2>
-    ${links.join('<p>')}
-    <style>body{max-width:30em;margin:10vh auto;font-family:system-ui;}</style>`
+    console.log("group.info.title", group)
+    let html = [
+      `${group.info.title || group.info.color}`,
+      `${links.join('')}`,
+      `<meta charset="UTF-8">`,
+      `<title>${group.info.title}</title>`,
+      `<meta name="viewport" content="width=device-width, initial-scale=1">`,
+      `<style>b{color:${group.info.color}}\nbody{max-width:30em;margin:10vh auto;padding:2em;font-family:system-ui;}</style>`
+    ].join('');
   
-    let url = 'data:text/html,' + encodeURIComponent(html);
+    let url = 'data:text/html,' + encodeURIComponent(html).replace(/%20/g, " ");
     return chrome.bookmarks.create({parentId: "1", title: fancyTitle, url:url})
     group.tabs.forEach(tab => {
       promises.push(chrome.bookmarks.create({parentId: folder.id, title: tab.title, url: tab.url}))
@@ -950,10 +960,10 @@ function editGroup(e) {
   if (e) e.stopPropagation();
   clearContext();
   groupBeingEdited = this;
-  document.getElementById(this + "title").focus();
+  let el = document.getElementById(this + "-title")
+  el.focus();
+  el.onblur = () => {window.getSelection().removeAllRanges()}
   document.execCommand('selectAll',false,null)
-  // let title = prompt("Rename Group", this.info.title)
-  // if (title) chrome.tabGroups.update(this.id, {title: title})
 }
 
 function groupRenameEvent(e) {
@@ -1077,7 +1087,7 @@ var TabGroup = function(vnode) {
             m('div.action.more', {title:'Menu', onclick:showContextMenu.bind(group)}, m('span.material-icons',"more_vert"))
             //m('div.action.archive', {title:'Menu', onclick:showContextMenu.bind(group)}, m('span.material-icons',"close"))
           ),
-          m('div.title', {id: group.id + "title", contenteditable:true}, m.trust(title)),
+          m('div.title', {id: group.id + "-title", contenteditable:true}, m.trust(title)),
         ),
         children
       )
@@ -1094,37 +1104,43 @@ let favicons = {
 
 function focusTab(id, wid, focusTheWindow) {
   chrome.tabs.update(id, { 'active': true });
-  if (wid && focusTheWindow) { 
-    if (wid != lastWindowId || focusTheWindow) chrome.windows.update(wid, { "focused": true }, () => {
-      if (myWindowId && !focusTheWindow) chrome.windows.update(myWindowId, { "focused": true })
-    })
+  
+  if (wid && (focusTheWindow || wid != lastWindowId)) { 
+    focusWindow(wid, myWindowId && !focusTheWindow)
+  }
+}
+
+async function focusWindow(wid, reactivateSelf) {
+  await chrome.windows.update(wid, { "focused": true });
+  if (reactivateSelf) {
+    chrome.windows.update(myWindowId, { "focused": true })
   }
 }
 
 var Tab = function(vnode) {
   function onclick(e) {
-      if (e.metaKey) {
-        chrome.tabs.update(this.id, { 'highlighted': true });
-      } else if (e.shiftKey) {
-        let queryOptions = { active: true, windowId:this.windowId };
-        chrome.tabs.query(queryOptions)
-        .then((activeTab) => {
-          let min = Math.min(activeTab[0].index, this.index);
-          let max = Math.max(activeTab[0].index, this.index);
-          let tabIds = []
-          windows.forEach(w => {
-            if (w.id == this.windowId) {
-              w.tabs.forEach(t => {
-                if (t.index >= min && t.index <= max) {
-                  chrome.tabs.update(t.id, { 'highlighted': true });
-                }
-              })
-            }
-          })
-
+    if (e.metaKey) {
+      chrome.tabs.update(this.id, { 'highlighted': true });
+    } else if (e.shiftKey) {
+      let queryOptions = { active: true, windowId:this.windowId };
+      chrome.tabs.query(queryOptions)
+      .then((activeTab) => {
+        let min = Math.min(activeTab[0].index, this.index);
+        let max = Math.max(activeTab[0].index, this.index);
+        let tabIds = []
+        windows.forEach(w => {
+          if (w.id == this.windowId) {
+            w.tabs.forEach(t => {
+              if (t.index >= min && t.index <= max) {
+                chrome.tabs.update(t.id, { 'highlighted': true });
+              }
+            })
+          }
         })
-      } else {
-        focusTab(this.id, this.windowId)      
+
+      })
+    } else {
+      focusTab(this.id, this.windowId)
     }
   }
   function close(e) {

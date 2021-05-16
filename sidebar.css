@@ -336,7 +336,7 @@ div.menu.visible {
 
 
 .tab.active {
-  background-color: var(--hover-color);
+  background-color: var( --item-hover-color);
   color: var(--text-color);
   font-weight: 500;
 }
@@ -351,7 +351,7 @@ div.menu.visible {
 .group > .header.showingMenu,
 .tab:hover,
 .tab.showingMenu {
-  background-color: var(--accent-highlight, --hover-color);
+  background-color: var(--accent-highlight, --item-hover-color);
 }
 
 .tab.audible:before {
@@ -791,9 +791,10 @@ hr {
   --surface-focused-color: white;
   --text-color: black;
   --surface-stroke-color: rgba(0,0,0,0.1);
-  --item-hover-color: #f8f8f8;
+  --item-hover-color: rgba(0,0,0,0.05);
   --item-active-color: hsla(220, 78%, 76%,0.3);
   --item-highlighted-color: rgba(0,0,0,0.1);
+  --accent-highlight: rgba(0,0,0,0.05);
 }
 
 /* Dark Mode */
