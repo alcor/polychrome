@@ -778,6 +778,36 @@ div.menu.visible {
   --accent-dark: hsl(186, 42%, 36%);
 }
 
+
+.group.editing .header:hover .colorpicker {
+  display:flex;
+}
+
+.colorpicker {
+  font-size:12px;
+  width:4em;
+  height:2em;
+  margin-top:0em;
+  display:none;
+  flex-wrap: wrap;
+  padding:0px 3px;
+  box-sizing: content-box;
+  position:relative;
+  z-index: 100;
+  align-items: center;
+  justify-content: center;
+  border-radius:0.7em;
+}
+
+.color {
+  width:1em;
+  height:1em;
+  border-radius:1em;
+  background-color: var(--accent-dark);
+  box-sizing:border-box;
+  border:1px solid var(--surface-focused-color);
+}
+
 hr {
   border: none;
   border-bottom: 1px solid rgba(0,0,0,0.1);

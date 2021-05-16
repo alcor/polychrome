@@ -183,7 +183,8 @@ function sortTabs(type) {
           console.log("otherTabs", otherTabs)
           chrome.tabs.group({tabIds:otherTabs, createProperties:{windowId:w.id}})
           .then(gid => chrome.tabGroups.update(gid, {title: "Other"}))
-          .then(group => { console.log(group.id); chrome.tabGroups.move(group.id, {index:-1, windowId:w.id})})
+          .then(group => chrome.tabGroups.move(group.id, {index:-1, windowId:w.id}))
+          .then(() => chrome.tabs.ungroup(otherTabs))
         }
       })
     })
@@ -392,7 +393,6 @@ document.addEventListener("dragend", function( event ) {
   draggedItem.classList.remove("dragged");
   draggedItem = undefined;
 })
-
 
 window.onkeydown = function(event) {
   if (event.key == "ArrowUp" || event.key == "ArrowDown") {
@@ -957,12 +957,17 @@ function popOutTab(e){
 
  
 function editGroup(e) {
+
+  groupBeingEdited = this;
+  m.redraw();
   if (e) e.stopPropagation();
   clearContext();
-  groupBeingEdited = this;
   let el = document.getElementById(this + "-title")
   el.focus();
-  el.onblur = () => {window.getSelection().removeAllRanges()}
+  el.onblur = () => {
+    window.getSelection().removeAllRanges();
+    groupBeingEdited = undefined;
+  }
   document.execCommand('selectAll',false,null)
 }
 
@@ -1069,7 +1074,7 @@ var TabGroup = function(vnode) {
         children.push(m(Tab, {tab}))
       })
       
-      if (collapsed && (activeQuery?.length <= 1)) classList.push("collapsed");
+      if (collapsed && (!activeQuery  || activeQuery.length <= 1)) classList.push("collapsed");
       let height = collapsed ? 0 : children.length + 1;
 
       attrs.draggable = true;
@@ -1078,6 +1083,8 @@ var TabGroup = function(vnode) {
       if (contextTarget && (group.id == contextTarget.id)) attrs.class = ("showingMenu");
 
       if (activeQuery && !children.length) return;
+
+      if (groupBeingEdited == group.id) classList.push("editing");
 
       return m('div.group', {class:classList.join(" "), style:`flex-grow:${height}`},
         m('div.header', attrs,
@@ -1088,6 +1095,7 @@ var TabGroup = function(vnode) {
             //m('div.action.archive', {title:'Menu', onclick:showContextMenu.bind(group)}, m('span.material-icons',"close"))
           ),
           m('div.title', {id: group.id + "-title", contenteditable:true}, m.trust(title)),
+          group.info ? m(ColorPicker, {color:group.info.color, gid:group.id}) : undefined
         ),
         children
       )
@@ -1096,6 +1104,26 @@ var TabGroup = function(vnode) {
     }
   }
 }
+
+var ColorPicker = function(vnode) {
+  let selectColor = (gid, color) => {
+    chrome.tabGroups.update(gid, {color: color});
+  }
+  return {
+    view: function(vnode) {
+      let attrs = vnode.attrs;
+      let colors = [];
+      for (let color in colorEmoji) {
+        colors.push(m('div.color', {class:color, onclick:() => selectColor(attrs.gid, color)}))
+      }
+      return m('div.colorpicker',
+        colors
+      )
+    }
+  }
+}
+
+
 
 
 let favicons = {
@@ -1183,7 +1211,6 @@ var Tab = function(vnode) {
       let emojicon = undefined;
       let match = titles.title.match(/(\p{Extended_Pictographic}+)/u)
       if ( match ) {
-        console.log (match)
         emojicon = match[1];// runes(match[1]);
         titles.title = titles.title.replace(match[1], "")
       }
