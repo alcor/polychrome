@@ -377,6 +377,14 @@ document.addEventListener("drop", async function( event ) {
     if (!tabIds.includes(dragId)) tabIds = [dragId];
 
     await chrome.tabs.move(tabIds, {index:dropIndex, windowId:dropWid})
+
+    // Work around a bug in chrome.tabs.move https://bugzilla.mozilla.org/show_bug.cgi?id=1323311
+    if (tabIds.length > 1) { 
+      let anchorId = tabIds.shift();
+      let anchorTab = await chrome.tabs.get(anchorId);
+      await chrome.tabs.move(tabIds, {index:anchorTab.index + 1, windowId:dropWid})
+    }
+    
     if (dropGid == -1 || (headerTarget && !after)) {
       chrome.tabs.ungroup(tabIds, m.redraw)
     } else {
