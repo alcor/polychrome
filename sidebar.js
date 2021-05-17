@@ -1,5 +1,3 @@
-
-
 let v = (nameObject) => { for(let varName in nameObject) { return varName; } }
 
 
@@ -87,7 +85,9 @@ function searchKey(e) {
     return;
   }
   if (e.key == "Enter") {
-    let tab = document.getElementsByClassName("tab")[0];
+    let tabs = document.getElementsByClassName("tab");
+    let tab = Array.from(tabs).filter(t => t.classList.contains('active'))[0];
+    console.log("active", tab, tabs)
     let id = parseInt(tab.getAttribute('id'))
     let wid =  parseInt(tab.getAttribute('wid'))
     focusTab(id, wid, true);
@@ -852,45 +852,74 @@ function archiveTab(e) {
 let colorEmoji = { grey: "⚪️", blue: "🔵", red: "🔴", yellow: "🟡", green: "🟢", pink: "🌸", purple: "🟣", cyan: "🌐" }
 
 
-function archiveGroup(e) {
+
+function emojiTitleForGroupInfo(info) {
+  return `${colorEmoji[info.color]} ${info.title || info.color}`;
+}
+
+function archiveGroupToDataURL(group) {
+  let links = group.tabs.map((tab) => `<p><a href="${tab.url}">${tab.title}</a>`)
+  let html = [
+    `${group.info.title || group.info.color}`,
+    `${links.join('')}`,
+    `<meta charset="UTF-8">`,
+    `<title>${group.info.title}</title>`,
+    `<meta name="viewport" content="width=device-width, initial-scale=1">`,
+    `<style>b{color:${group.info.color}}\nbody{max-width:30em;margin:10vh auto;padding:2em;font-family:system-ui;}</style>`
+  ].join('');
+
+  let url = 'data:text/html,' + encodeURIComponent(html).replace(/%20/g, " ");
+  return chrome.bookmarks.create({parentId: "1", title: emojiTitleForGroupInfo(group.info), url:url})
+}
+
+async function archiveGroup(e) {
   e.stopPropagation();
   let group = this;
   let title = group.info.title || group.info.color;
   let fancyTitle = `${colorEmoji[group.info.color]} ${title}`;
 
-  getBookmarkRoot()
-  .then(rootId => {
-    console.log("got id", rootId, group)
-    // return chrome.bookmarks.create({parentId: rootId, title: title})
-  })
-  .then((folder) => {
-    let promises = [];
-    let urlArray = group.tabs.map(tab => {return tab.url;})
-    urlArray = encodeURIComponent(JSON.stringify(urlArray))
-    let links = group.tabs.map((tab) => `<p><a href="${tab.url}">${tab.title}</a>`)
-    //let url = chrome.runtime.getURL(`open.html?title=${group.info.title}&color=${group.info.color}&urls=${urlArray}`);
-    let style = ""
-    console.log("group.info.title", group)
-    let html = [
-      `${group.info.title || group.info.color}`,
-      `${links.join('')}`,
-      `<meta charset="UTF-8">`,
-      `<title>${group.info.title}</title>`,
-      `<meta name="viewport" content="width=device-width, initial-scale=1">`,
-      `<style>b{color:${group.info.color}}\nbody{max-width:30em;margin:10vh auto;padding:2em;font-family:system-ui;}</style>`
-    ].join('');
+  let info = {
+    title: group.info.title,
+    color: group.info.color,
+    tabs: group.tabs.map( (tab) => ({url: tab.url, title:tab.title}) )
+  };
   
-    let url = 'data:text/html,' + encodeURIComponent(html).replace(/%20/g, " ");
-    return chrome.bookmarks.create({parentId: "1", title: fancyTitle, url:url})
-    group.tabs.forEach(tab => {
-      promises.push(chrome.bookmarks.create({parentId: folder.id, title: tab.title, url: tab.url}))
+  let key = 'group-' + title;
+  let record = {};
+  record[key] = info
+  
+  let storage = chrome.storage.sync;
+  storage.set(record, (r1) => {
+    groupList[key] = info;
+    m.redraw();
+    storage.get(key, (r2) => {
+          console.log("Set",r2);
+
     })
-    return Promise.all(promises);
   })
-  .then(results => {
-    chrome.tabs.remove(this.tabs.map(t => t.id))
-  })
+
+  chrome.tabs.remove(this.tabs.reverse().map(t => t.id))
+  
+  // getBookmarkRoot()
+  // .then(rootId => {
+  //   console.log("got id", rootId, group)
+  //   // return chrome.bookmarks.create({parentId: rootId, title: title})
+  // })
+  // .then((folder) => {
+  //   let promises = [];
+  //   let urlArray = group.tabs.map(tab => {return tab.url;})
+  //   urlArray = encodeURIComponent(JSON.stringify(urlArray))
+  //   return chrome.bookmarks.create({parentId: "1", title: fancyTitle, url:url})
+  //   group.tabs.forEach(tab => {
+  //     promises.push(chrome.bookmarks.create({parentId: folder.id, title: tab.title, url: tab.url}))
+  //   })
+  //   return Promise.all(promises);
+  // })
+  // .then(results => {
+  //   chrome.tabs.remove(this.tabs.map(t => t.id))
+  // })
 }
+
 var bookmarkRoot = getDefault(v({bookmarkRoot}));
 let BOOKMARK_FOLDER_TITLE = "Tab Archive​";
 
@@ -1065,7 +1094,9 @@ var TabGroup = function(vnode) {
         lastTab = tab;
 
         if (activeQuery) {
-          if (!tab.title.toLowerCase().includes(activeQuery)) {
+          if (!tab.title.toLowerCase().includes(activeQuery) 
+           && !tab.url.includes(activeQuery)
+            ) {
             return;
           }
           if (activeQueryIndex == activeQueryItems.length) tab.activeResult = true;
@@ -1106,20 +1137,48 @@ var TabGroup = function(vnode) {
   }
 }
 
-let groupsInfo = [
-  {title:"Green", color:"pink"},
-{title:"Yellow", color:"pink"},
-{title:"Red", color:"pink"}];
 
+let groupList = []
+
+async function loadGroups() {
+  let storage = chrome.storage.sync;
+  storage.get(null, (result) => {
+    for (var key in result) {
+      if (!key.startsWith("group")) continue;
+      groupList.push(result[key])
+    }
+    console.log("Loaded Groups",groupList);
+  });
+}
+loadGroups()
+
+
+let restoreGroup = async (group) => {
+  console.log("restore", group)
+
+  let existing = (await chrome.tabGroups.query({title: group.title}))[0]
+  if (existing) {
+    console.log("existing", existing)
+  } else {
+    let promises = group.tabs.map((tab, i) => chrome.tabs.create({url: tab.url, selected:false, active:false}))
+    Promise.all(promises)
+    .then (tabs => {
+      return chrome.tabs.group({tabIds:tabs.map(t => t.id), createProperties:{windowId: tabs[0].windowId}})
+      .then((gid) => {
+        chrome.tabs.update(tabs[0].id, { 'active': true });
+        chrome.tabGroups.update(gid, {title:title, color:color})
+      })
+    }); 
+  } 
+};
 
 var ArchivedGroups = function(vnode) {
-  let restoreGroup = (group) => {
-    console.log("restore", group)
-  }
+
+
   return {
     view: function(vnode) {
       return m('div.group-archive',
-        groupsInfo.map( g => m('div.group-token', {class:g.color, onclick:restoreGroup.bind(null,g)}, g.title))
+        groupList.map( g => m('div.group-token', {class:g.color, onclick:restoreGroup.bind(null,g)}, g.title || g.color))
       )
     }
   }

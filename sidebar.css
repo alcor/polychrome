@@ -1,6 +1,7 @@
 * {
   font-family: system-ui, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
   font-weight: 400;
+  user-select:none;
 }
 
 body {
@@ -21,7 +22,6 @@ body.menu {
 
 /* Toolbar */
 body.menu .toolbar {
-
   padding-top: 6px;
   height:48px
 }
@@ -169,6 +169,8 @@ div.menu.visible {
   column-gap:1px; */
   flex:1 0 auto;
   overflow-x:hidden;
+
+  padding-bottom:10vh;
 }
 .window > .title {
   padding-left: .3em;
@@ -591,11 +593,16 @@ div.menu.visible {
 
 
 .group-archive {
-display:flex;
-flex-wrap: wrap;
-padding:4px;
-cursor:default;
-display:none;
+  position:fixed;
+  bottom:0;
+  left:0; right: 0;
+  display:flex;
+  flex-wrap: wrap;
+  padding:4px;
+  cursor:default;
+  background:var(--surface-color);
+  border-top:1px solid var(--surface-stroke-color);
+  display:none;
 }
 
 .group-token {
