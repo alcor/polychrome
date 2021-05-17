@@ -268,7 +268,7 @@ function titleForTab(tab) {
         }
         //title = tab.title.replace(replacement, '$1')
       } else {
-        let components = tab.title.split(/\s[-–—•|]\s/g);
+        let components = tab.title.split(/\s[-–—•|\/]\s/g);
         if (components.length > 1) app = components.pop();
         title = components.join(' • ');
       }
@@ -338,7 +338,7 @@ document.addEventListener("dragover", function( event ) {
   }
 }, false);
 
-document.addEventListener("drop", function( event ) {
+document.addEventListener("drop", async function( event ) {
   let target = event.target;
   if (target != document.body) target = target.closest("[index]");
 
@@ -361,30 +361,27 @@ document.addEventListener("drop", function( event ) {
   let dragGid = parseInt(draggedItem.getAttribute("gid")) || -1;
   let dropGid = parseInt(target.getAttribute("gid")) || -1;
   let groupDrag = draggedItem.classList.contains("header");
+  let headerTarget = target.classList.contains("header");
 
 
-  if (after) dropIndex++;
+  if (after && !headerTarget) dropIndex++;
   console.log(`move from ${dragIndex} to ${dropIndex}  in w:${dropWid} > g:${dropGid}`)
-if (dropIndex > dragIndex) dropIndex--;
+  if (dropIndex > dragIndex) dropIndex--;
   console.log(`move from ${dragIndex} to ${dropIndex}  in w:${dropWid} > g:${dropGid}`)
-
 
   if (groupDrag) {
     chrome.tabGroups.move(dragGid, {index:dropIndex, windowId:dropWid})
-    
   } else {
-    chrome.tabs.query({highlighted:true, windowId:dropWid})
-    .then(tabs => {
-      var tabIds = tabs.map(tab => tab.id);
-      if (!tabIds.includes(dragId)) tabIds = [dragId];
-      chrome.tabs.move(tabIds, {index:dropIndex, windowId:dropWid}, () => {
-        if (dropGid == -1) {
-          chrome.tabs.ungroup(tabIds)
-        } else {
-          chrome.tabs.group({groupId:dropGid, tabIds:tabIds})
-        }
-      })
-    })
+    let tabs = await chrome.tabs.query({highlighted:true, windowId:dropWid})
+    var tabIds = tabs.map(tab => tab.id);
+    if (!tabIds.includes(dragId)) tabIds = [dragId];
+
+    await chrome.tabs.move(tabIds, {index:dropIndex, windowId:dropWid})
+    if (dropGid == -1 || (headerTarget && !after)) {
+      chrome.tabs.ungroup(tabIds, m.redraw)
+    } else {
+      chrome.tabs.group({groupId:dropGid, tabIds:tabIds})
+    }
   }
 
 }, false);
@@ -1194,7 +1191,7 @@ var ColorPicker = function(vnode) {
       let attrs = vnode.attrs;
       let colors = [];
       for (let color in colorEmoji) {
-        colors.push(m('div.color', {class:color, onclick:() => selectColor(attrs.gid, color)}))
+        colors.push(m('div.color', {class:color, onclick:(e) => {selectColor(attrs.gid, color); e.stopPropagation()}}))
       }
       return m('div.colorpicker',
         colors

@@ -8,7 +8,7 @@ body {
   background: var(--surface-color);
   color: var(--text-color);
   margin: 0;
-  font-size: 11px;
+  font-size: 12px;
   display: flex;
   flex-direction: column;
   min-height:100vh;
@@ -102,7 +102,7 @@ div.menu {
 }
 
 .button div.menu {
-  max-width: 50%;
+  max-width: 80%;
   right: 8px;
   top: 50px;
 }
@@ -121,7 +121,8 @@ div.menu .action span {
 
 div.menu > div {
   text-overflow: ellipsis;
-  padding: 6px 16px 6px 16px;
+  padding: 0px 16px 0px 24px;
+  line-height:28px;
 }
 
 div.menu > div.disabled {
@@ -134,7 +135,7 @@ div.menu > div.true:before {
   color: var(--text-color);
   display: block;
   float: left;
-  margin-left: -12px;
+  margin-left: -16px;
 }
 
 div.menu > div:hover {
@@ -230,9 +231,9 @@ div.menu.visible {
   /* overflow: hidden; */
   color: rgba(0,0,0,0,0.8);
   background: 16px center / 16px no-repeat;
-  height: 24px;
-  line-height:24px;
-  max-height: 24px;
+  height: 28px;
+  line-height:28px;
+  max-height: 28px;
   box-sizing: border-box;
   user-select: none;
   cursor: default;
@@ -437,10 +438,15 @@ div.menu.visible {
 
 
 .tab.cluster-start {
-  margin-top:8px;
+  /* margin-top:8px; */
+  border-top:1px dotted var(--accent-highlight);
 }
 .tab.cluster-end {
-  margin-bottom:8px;
+  /* margin-bottom:8px; */
+  height:29px;
+  border-bottom:1px dotted var(--accent-highlight);
+  margin-bottom:-1px;
+overflow:hidden;
 }
 
 .tab.pinned {
@@ -448,17 +454,20 @@ div.menu.visible {
 }
 
 .tab.host-newtab {
-  padding-left: 0.7em;
   color: rgba(0,0,0,0.5);
+}
+
+.tab.host-newtab .icon {
+  display:none;
 }
 
 
 /* Groups */
 
 .group {
-  margin: 0 0px 4px 4px;
-  padding: 0 0 0 4px;
-  border-left: 4px solid transparent;
+  margin: 0 0px 4px 0px;
+  padding: 0 0 0 0px;
+  border-left: 6px solid transparent;
   border-color: var(--accent-light, transparent);
   break-inside: avoid;
 
@@ -467,7 +476,6 @@ div.menu.visible {
 
 .group > .header {
   width: 100%;
-  height: 24px;
   box-sizing: border-box;
   /* position: sticky; */
   z-index: 1;
@@ -478,6 +486,11 @@ div.menu.visible {
   flex: 1 0 auto;
   break-inside: avoid;
 
+  align-items: center;
+}
+
+.group.no-group .header {
+  display:none;
 }
 
 .group.no-group .header .actions,
@@ -566,7 +579,6 @@ div.menu.visible {
 }
 
 .group > .header > .title {
-  text-transform: uppercase;
   letter-spacing: 1px;
   font-size: smaller;
   padding-top: 0;
@@ -576,6 +588,12 @@ div.menu.visible {
   color: var(--accent-dark, --text-color);
   pointer-events:none;
 }
+
+.group > .header > .title:not(:focus) {
+
+  text-transform: uppercase;
+}
+
 
 .group.no-group {
   margin-top: 0px;
@@ -684,24 +702,24 @@ div.menu.visible {
   height:2px;
   width:100%;
   position:absolute;
-  margin-top:-24px;
+  margin-top:-28px;
   left:0px;
   background-color: var(--text-color);
   pointer-events: none;
 }
 
 .droptarget.after::before {
-  margin-top:23px;
+  margin-top:27px;
 
   /* background-color: gray; */
 }
 
 .group > .header.droptarget::before {
-  margin-top:0px;
-  left:16px;
+  /* margin-top:0px; */
+  /* left:16px; */
 }
 .group > .header.droptarget.after::before {
-  margin-top:23px;
+  /* margin-top:23px; */
 }
 /* 
 .droptarget:not(.after) {
