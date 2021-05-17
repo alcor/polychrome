@@ -1,4 +1,5 @@
 let v = (nameObject) => { for(let varName in nameObject) { return varName; } }
+var groupList = []
 
 
 // Stored Values
@@ -306,10 +307,8 @@ document.addEventListener("dragenter", function( event ) {
   let dragIndex = parseInt(draggedItem.getAttribute("index"));
   let dropIndex = parseInt(target.getAttribute("index"));
   
-  console.log("target", target)
   if (!target || target == draggedItem) return;
   if (target) target.classList.add("droptarget", true);
-  console.log("target2", target)
 }, false);
 
 document.addEventListener("dragleave", function( event ) {
@@ -317,7 +316,6 @@ document.addEventListener("dragleave", function( event ) {
   let target = event.target;
   if (target != document.body) target = target.closest("[index]");
   if (!target) return;
-  console.log("leave", target)
   if (target) {
     target.classList.remove("droptarget", true);
     target.classList.remove("after", true);
@@ -333,7 +331,6 @@ document.addEventListener("dragover", function( event ) {
     target.classList.toggle("after", bottomHalf);
 
     let dropIndex = parseInt(target.getAttribute("index")) || -1;
-    //console.log("dropping on ", bottomHalf, event.offsetY);
 
   }
 }, false);
@@ -353,7 +350,6 @@ document.addEventListener("drop", async function( event ) {
   if (!target || target == draggedItem) return;
   event.preventDefault();
 
-  console.log("dragging", draggedItem, target)
   let dragId = parseInt(draggedItem.getAttribute("id"));
   let dragIndex = parseInt(draggedItem.getAttribute("index"));
   let dropIndex = target.getAttribute("index") ? parseInt(target.getAttribute("index")) : -1;
@@ -362,7 +358,6 @@ document.addEventListener("drop", async function( event ) {
   let dropGid = parseInt(target.getAttribute("gid")) || -1;
   let groupDrag = draggedItem.classList.contains("header");
   let headerTarget = target.classList.contains("header");
-
 
   if (after && !headerTarget) dropIndex++;
   console.log(`move from ${dragIndex} to ${dropIndex}  in w:${dropWid} > g:${dropGid}`)
@@ -587,8 +582,7 @@ var WindowManager = function(vnode) {
       return [
         m(Toolbar),
         m(WindowList, {windows:windows}),
-        m(ContextMenu),
-        m(ArchivedGroups)
+        m(ContextMenu)
       ] 
     }
   }
@@ -619,33 +613,38 @@ var Toolbar = function(vnode) {
       return m("div.toolbar", 
         m(Search),
         myWindowId ? undefined : m('div.button#popout', {onclick:popOutSidebar}, m('span.material-icons','open_in_new')),
+        groupList.length ? m('div.button',
+          m('span.material-icons','label_outline'),
+          m('div.sort.menu',
+            m(ArchivedGroups, {groups:groupList})
+          )) : undefined,
         m('div.button',
           m('span.material-icons','sort'),
           m('div.sort.menu',
-          m('div', {onclick:() => { removeDuplicates() }}, "Remove Duplicates"),
-          m('div', {onclick:() => { discardAllTabs() }}, "Unload all tabs"),
+          m('div.action', {onclick:() => { removeDuplicates() }}, "Remove Duplicates"),
+          m('div.action', {onclick:() => { discardAllTabs() }}, "Unload all tabs"),
           m('hr'),
 
-          m('div', {onclick:() => { sortTabs('domain') }}, "Group by Domain"),
+          m('div.action', {onclick:() => { sortTabs('domain') }}, "Group by Domain"),
             //m('div.disabled', {onclick:() => { sortTabs('type') }}, "Sort by Type"),
-            m('div', {onclick:() => { sortTabs('title') }}, "Sort by Title"),
+            m('div.action', {onclick:() => { sortTabs('title') }}, "Sort by Title"),
             //m('div.disabled', {onclick:() => { discardAllTabs() }}, "Combine Windows"),
             m('hr'),
-            m('div', {class: preserveGroups,
+            m('div.action', {class: preserveGroups,
               onclick: () => setDefault(v({preserveGroups}), preserveGroups = !preserveGroups)
             }, "Preserve Groups")
           )),
         m('div.button', {onclick:showMenu},
           m('span.material-icons','more_vert'),
           m('div.sort.menu',
-            m('div', {class: autofocus, title:"(Mac only), focuses this window when the mouse enters, to reduce the need to click multiple times.",
+            m('div.action', {class: autofocus, title:"(Mac only), focuses this window when the mouse enters, to reduce the need to click multiple times.",
             onclick: () => setDefault(v({autofocus}), autofocus = !autofocus)
             }, "Aggressive autofocus"),
-            m('div', {class: simplifyTitles, title:"Simplify titles",
+            m('div.action', {class: simplifyTitles, title:"Simplify titles",
             onclick: () => setDefault(v({simplifyTitles}), simplifyTitles = !simplifyTitles)
             }, "Simplify titles"),
             m('hr'),
-            m('div', {onclick: refresh},"Refresh")
+            m('div.action', {onclick: refresh},"Refresh")
           )
         )
       )   
@@ -802,9 +801,9 @@ var ContextMenu = function(vnode) {
        } else {
         return m("div.menu#contextmenu", {class:'visible', style:style},
           m('div.action.archive', {title:'Archive', onclick:archiveGroup.bind(item)},
-            m('span.material-icons',"save_alt"), "Archive group"),
+            m('span.material-icons',"close"), "Save and Close"),
           m('div.action.close', {title:'Close', onclick:closeGroup.bind(item)},
-            m('span.material-icons',"close"), 'Close group'),
+            m('span.material-icons',"delete"), 'Delete group'),
             m('hr'),
 
           m('div.action.popout', {title:'Open in new window', onclick:popOutGroup.bind(item)},
@@ -895,12 +894,8 @@ async function archiveGroup(e) {
   
   let storage = chrome.storage.sync;
   storage.set(record, (r1) => {
-    groupList[key] = info;
+    groupList.push(info);
     m.redraw();
-    storage.get(key, (r2) => {
-          console.log("Set",r2);
-
-    })
   })
 
   chrome.tabs.remove(this.tabs.reverse().map(t => t.id))
@@ -1128,8 +1123,8 @@ var TabGroup = function(vnode) {
           m('div.actions',
             m('div.action.edit', {title:'Rename', onclick:editGroup.bind(group.id)}, m('span.material-icons',"edit")),
             m('div.action.newtab', {title:'New tab in group', onclick:newTabInGroup.bind(group)}, m('span.material-icons',"add_circle_outline")),
-            m('div.action.more', {title:'Menu', onclick:showContextMenu.bind(group)}, m('span.material-icons',"more_vert"))
-            //m('div.action.archive', {title:'Menu', onclick:showContextMenu.bind(group)}, m('span.material-icons',"close"))
+            m('div.action.more', {title:'Menu', onclick:showContextMenu.bind(group)}, m('span.material-icons',"more_vert")),
+            m('div.action.archive', {title:'Menu', onclick:archiveGroup.bind(group)}, m('span.material-icons',"close"))
           ),
           m('div.title', {id: group.id + "-title", contenteditable:true}, m.trust(title)),
           group.info ? m(ColorPicker, {color:group.info.color, gid:group.id}) : undefined
@@ -1143,7 +1138,6 @@ var TabGroup = function(vnode) {
 }
 
 
-let groupList = []
 
 async function loadGroups() {
   let storage = chrome.storage.sync;
@@ -1160,10 +1154,23 @@ loadGroups()
 
 let restoreGroup = async (group) => {
   console.log("restore", group)
+  
+  let query = group.title.length ? {title: group.title} : {color: group.color} ;
 
-  let existing = (await chrome.tabGroups.query({title: group.title}))[0]
+  let storage = chrome.storage.sync;
+
+  let key = 'group-' + group.title;
+  storage.remove(key)
+
+  groupList.splice(groupList.indexOf(group),1)
+
+
+  let existing = (await chrome.tabGroups.query(query))[0]
   if (existing) {
     console.log("existing", existing)
+    let tabs = await chrome.tabs.query({windowId: existing.windowId})
+    tabs = tabs.filter((tab) => {return tab.groupId == existing.id})
+    if (tabs.length) focusTab(tabs[0].id);
   } else {
     let promises = group.tabs.map((tab, i) => chrome.tabs.create({url: tab.url, selected:false, active:false}))
     Promise.all(promises)
@@ -1171,7 +1178,7 @@ let restoreGroup = async (group) => {
       return chrome.tabs.group({tabIds:tabs.map(t => t.id), createProperties:{windowId: tabs[0].windowId}})
       .then((gid) => {
         chrome.tabs.update(tabs[0].id, { 'active': true });
-        chrome.tabGroups.update(gid, {title:title, color:color})
+        chrome.tabGroups.update(gid, {title:group.title, color:group.color})
       })
     }); 
   } 
@@ -1182,8 +1189,9 @@ var ArchivedGroups = function(vnode) {
 
   return {
     view: function(vnode) {
+      let groups = vnode.attrs.groups;
       return m('div.group-archive',
-        groupList.map( g => m('div.group-token', {class:g.color, onclick:restoreGroup.bind(null,g)}, g.title || g.color))
+        groups.map( g => m('div.group-token', {class:g.color, onclick:restoreGroup.bind(null,g)}, g.title || g.color))
       )
     }
   }

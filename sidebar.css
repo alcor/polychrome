@@ -119,7 +119,7 @@ div.menu .action span {
   margin-right:8px;
 }
 
-div.menu > div {
+div.menu > div.action {
   text-overflow: ellipsis;
   padding: 0px 16px 0px 24px;
   line-height:28px;
@@ -138,7 +138,7 @@ div.menu > div.true:before {
   margin-left: -16px;
 }
 
-div.menu > div:hover {
+div.menu > div.action:hover {
   background-color: var(--item-highlighted-color);
   color: var(--text-color);
 }
@@ -611,22 +611,18 @@ overflow:hidden;
 
 
 .group-archive {
-  position:fixed;
-  bottom:0;
-  left:0; right: 0;
   display:flex;
   flex-wrap: wrap;
   padding:4px;
   cursor:default;
-  background:var(--surface-color);
-  border-top:1px solid var(--surface-stroke-color);
-  display:none;
+  max-width:160px;
 }
 
 .group-token {
   border: 1px solid var(--accent-dark);
   margin:4px;
   padding:4px;
+  font-size:12px;
   color:var(--accent-dark);
   border-radius:4px;
   text-transform:uppercase;
