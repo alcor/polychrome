@@ -29,6 +29,18 @@ document.addEventListener('DOMContentLoaded', function() {
   searchEl.onkeypress = searchKey;
   searchEl.focus();
   //handleInput();
+  chrome.storage.onChanged.addListener(function(changes, namespace) {
+    for (let key in changes) {
+      var storageChange = changes[key];
+      console.log('Storage key "%s" in namespace "%s" changed. ' +
+                  'Old value was "%s", new value is "%s".',
+                  key,
+                  namespace,
+                  storageChange.oldValue,
+                  storageChange.newValue);
+    }
+    loadGroups()
+  });
 })
 
 window.addEventListener("focus", function(event) { 
@@ -78,6 +90,9 @@ function searchInput(e) {
   let tab = document.querySelector(".tab") 
   focusTab(parseInt(tab.getAttribute("id")))
 }
+
+
+
 
 function searchKey(e) {
 
@@ -411,7 +426,7 @@ window.onkeydown = function(event) {
       focusTab(parseInt(tab.getAttribute("id")))
     }
   } 
-  if (event.metaKey && event.key == 't') { // C-T
+  if (event.metaKey && !event.shiftKey && event.key == 't') { // C-T
     chrome.tabs.create({})
       .then ((tab) => {    
         console.log("tab", tab)
@@ -751,6 +766,7 @@ function clearContext() {
 function showContextMenu(e) {
   e.preventDefault();
   e.stopPropagation();
+  chrome.windows.update(myWindowId, { "focused": true })
   contextTarget = this;
   contextEvent = e;
 }
@@ -1140,16 +1156,22 @@ var TabGroup = function(vnode) {
 
 
 async function loadGroups() {
+  let list = []
   let storage = chrome.storage.sync;
   storage.get(null, (result) => {
     for (var key in result) {
       if (!key.startsWith("group")) continue;
-      groupList.push(result[key])
+      list.push(result[key])
     }
-    console.log("Loaded Groups",groupList);
+    console.log("Loaded Groups",list);
+    groupList = list;
   });
 }
 loadGroups()
+
+
+
+
 
 
 let restoreGroup = async (group) => {
@@ -1159,7 +1181,7 @@ let restoreGroup = async (group) => {
 
   let storage = chrome.storage.sync;
 
-  let key = 'group-' + group.title;
+  let key = 'group-' + (group.title || group.color);
   storage.remove(key)
 
   groupList.splice(groupList.indexOf(group),1)
@@ -1185,14 +1207,14 @@ let restoreGroup = async (group) => {
 };
 
 var ArchivedGroups = function(vnode) {
-
-
   return {
     view: function(vnode) {
       let groups = vnode.attrs.groups;
-      return m('div.group-archive',
-        groups.map( g => m('div.group-token', {class:g.color, onclick:restoreGroup.bind(null,g)}, g.title || g.color))
-      )
+      return groups.map( g => m('div.group-token', {class:g.color, onclick:restoreGroup.bind(null,g)},
+         m('div.title', g.title || g.color)
+        // close;
+         ))
+      
     }
   }
 }
