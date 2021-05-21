@@ -1,6 +1,10 @@
 let v = (nameObject) => { for(let varName in nameObject) { return varName; } }
 var groupList = []
+var activeSearchResults = [];
 
+var activeQuery = undefined;
+var activeQueryItems = undefined;
+var selectedItemIndex = 0;
 
 // Stored Values
 var autofocus = getDefault(v({autofocus}), false);
@@ -75,23 +79,51 @@ if (navigator.platform == 'MacIntel') {
   })
 }
 
-var activeQuery = undefined;
-var activeQueryItems = undefined;
-var activeQueryIndex = 0;
 
-function searchInput(e) {
+let render = function() {
+  m.redraw.sync();
+  let tab = document.querySelector(".tab") 
+  let id = tab.getAttribute("id");
+  if (id && !isMenuMode) focusTab(parseInt(id))
+}
+
+function  searchInput(e) {
   if (!e) return;
   var query = e ? e.target.value : undefined;
   activeQuery = query;
   activeQueryItems = [];
-  activeQueryIndex = 0;
+  selectedItemIndex = 0;
   m.redraw.sync();
 
-  let tab = document.querySelector(".tab") 
-  focusTab(parseInt(tab.getAttribute("id")))
+  if (query.length > 0) {
+    performDeepSearch(query)
+  } else {
+    activeSearchResults = [];
+    render();
+  }
 }
 
+function sortResults(a,b) {
+  let order = b.visitCount - a.visitCount;
+  if (!order) order = (b.lastVisitTime || b.dateAdded) - (a.lastVisitTime || a.dateAdded);
+  return order;
+}
 
+async function performDeepSearch(query) {
+  chrome.history.search({text:query}, history => {
+    chrome.bookmarks.search({query:query}, bookmarks => {
+      let results = history.concat(bookmarks);
+      results.sort(sortResults);
+      // TODO: Remove duplicate titles;
+      
+      results.splice(10);
+      if (query == activeQuery) {
+        activeSearchResults = results;
+      }
+    })
+  })
+
+}
 
 
 function searchKey(e) {
@@ -107,13 +139,19 @@ function searchKey(e) {
     let id = parseInt(tab.getAttribute('id'))
     let wid =  parseInt(tab.getAttribute('wid'))
     focusTab(id, wid, true);
-    e.target.value = "";
-    activeQuery = ""
-    activeQueryItems = undefined
-    activeQueryIndex = 0;
-    m.redraw;
+    clearSearch();
     return;
   }
+}
+
+function clearSearch() {
+  var searchEl = document.getElementById("search");
+  searchEl.value = "";
+  activeQuery = ""
+  activeQueryItems = undefined
+  selectedItemIndex = 0;
+  activeSearchResults = [];
+  m.redraw();
 }
   
 function sortByDomain(a,b) {
@@ -414,17 +452,16 @@ window.onkeydown = function(event) {
     let direction = event.key == "ArrowDown" ? 1 : -1;
     event.preventDefault();
 
-    if(!isMenuMode) {
-      let tabs = document.querySelectorAll(".tab")
-      tabs = Array.from(tabs);
-      console.log("tabs", tabs)
-      let index = tabs.findIndex(t => t.classList.contains("active"))
-      console.log("index", index)
-  
-      index = index + direction;
-      let tab = tabs[index] || tabs[0];
-      focusTab(parseInt(tab.getAttribute("id")))
-    }
+    let tabs = document.querySelectorAll(".tab")
+    tabs = Array.from(tabs);
+    let index = tabs.findIndex(t => t.classList.contains("active"))
+    if (index < 0) index = selectedItemIndex;
+
+    selectedItemIndex = index + direction;
+    let tab = tabs[selectedItemIndex] || tabs[0];
+    let id = tab.getAttribute("id");
+    if (id && !isMenuMode) focusTab(parseInt(id))
+    
   } 
   if (event.metaKey && !event.shiftKey && event.key == 't') { // C-T
     chrome.tabs.create({})
@@ -591,12 +628,14 @@ updateWindows()
 // Mithril Classes
 //
 
+
 var WindowManager = function(vnode) {
   return {
     view: function(vnode) {
       return [
         m(Toolbar),
         m(WindowList, {windows:windows}),
+        m(SearchResults, {results: activeSearchResults}),
         m(ContextMenu)
       ] 
     }
@@ -683,7 +722,10 @@ var WindowList = function(vnode) {
   return {
     view: function(vnode) {
       if (!vnode.attrs.windows.length) return "";
-      return m('div.windows#windows', vnode.attrs.windows.map(w => { return m(Window, {window:w, key:w.id})}));
+
+      return m('div.windows#windows', {class:activeQuery ? "searching" : ""},
+        vnode.attrs.windows.map(w => { return m(Window, {window:w, key:w.id})}
+      ));
       
     }
   }
@@ -720,12 +762,18 @@ var Window = function(vnode) {
 
       var classList = [];
       if (w.id == lastWindowId) classList.push('frontmost');
+      let groupNodes =  groups.map((group, i) => m(TabGroup, {group, key:group.id > 0 ? group.id : i}));
+
+      groupNodes = groupNodes.filter(function (el) {
+        return el != undefined;
+      });
+      if (!groupNodes.length) return undefined;
 
       return m('div.window', {class:classList,
             onclick:(e) => {clearContext(); e.preventDefault();},
             oncontextmenu: (e) => {e.preventDefault();}}, [
           m('div.header', m('div.title', "Window " + w.id)),
-          m('div.contents', groups.map((group, i) => m(TabGroup, {group, key:group.id > 0 ? group.id : i})))
+          m('div.contents',groupNodes)
       ])
     }
   }
@@ -770,22 +818,34 @@ function showContextMenu(e) {
   contextTarget = this;
   contextEvent = e;
 }
+async function openResult(result) {
+  let tab = await chrome.tabs.create({url: result.url, selected:true, active:true})
+  chrome.windows.update(tab.windowId, { "focused": true })
+  clearSearch();
+}
 
 
-// var ContextMenu = function(vnode) {
-//   return {
-//     view: function() {
-//       if (contextTarget) {
-//         if (contextTarget.groupId) {
-//           return m(TabMenu, {tab:contextTarget}) 
-//         } else {
-//           return m(TabGroupMenu, {group:contextTarget}) 
-//         }
-//       }
-//       return undefined;
-//     }
-//   }
-// }
+var SearchResults = function(vnode) {
+  return {
+    view: function(vnode) {
+      let results = vnode.attrs.results;
+      return m('div.group.search-results', results.map((tab) => {
+        let host = tab.url ? new URL(tab.url).hostname : tab.url;
+        let type = tab.lastVisitTime ? "history" : "bookmark";
+        let favIconUrl = tab.favIconUrl || favicons[host] || (host && host.length ?`https://www.google.com/s2/favicons?domain=${host}` : undefined)
+        return m('div.tab.result', {
+            class:type, 
+            id: type + "-" + tab.id,
+            onclick: openResult.bind(null, tab)
+          },
+          m('img.icon', {src: favIconUrl}),
+          m('div.title', tab.title)
+        )
+        
+      }));
+    }
+  }
+}
 
 var ContextMenu = function(vnode) {
   return {
@@ -1115,10 +1175,10 @@ var TabGroup = function(vnode) {
             ) {
             return;
           }
-          if (activeQueryIndex == activeQueryItems.length) tab.activeResult = true;
-          console.log("t", tab.activeResult, tab.title)
+          //if (selectedItemIndex == activeQueryItems.length) tab.activeResult = true;
           activeQueryItems.push(tab.id);
         }
+
         children.push(m(Tab, {tab}))
       })
       
@@ -1130,7 +1190,7 @@ var TabGroup = function(vnode) {
 
       if (contextTarget && (group.id == contextTarget.id)) attrs.class = ("showingMenu");
 
-      if (activeQuery && !children.length) return;
+      if (activeQuery && !children.length) return undefined;
 
       if (groupBeingEdited == group.id) classList.push("editing");
 

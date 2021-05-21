@@ -9,8 +9,6 @@ body {
   color: var(--text-color);
   margin: 0;
   font-size: 12px;
-  display: flex;
-  flex-direction: column;
   min-height:100vh;
 }
 
@@ -175,8 +173,6 @@ div.menu.visible {
   column-gap:1px; */
   flex:1 0 auto;
   overflow-x:hidden;
-
-  padding-bottom:10vh;
 }
 .window > .title {
   padding-left: .3em;
@@ -196,17 +192,27 @@ div.menu.visible {
 }
 
 .window {
-  padding-bottom: 1em;
+  padding-bottom: 8px;
+  padding-top: 8px;
   margin-bottom: 1em;
   display: flex;
   justify-content: end;
   flex-direction: column;
   margin-bottom: 0px;
-  padding-top: 8px;
   border-radius: 3px;
   --surface-color: var(--surface-color);
   background-color: var(--surface-color);
   border-bottom:1px solid var(--surface-stroke-color);
+}
+.searching .window,
+.searching .window.frontmost {
+  padding-bottom: 0;
+  padding-top: 0;
+  border-bottom:none;
+}
+.searching {
+  padding-top: 8px;
+  background:var(--surface-focused-color);
 }
 
 
@@ -249,6 +255,41 @@ div.menu.visible {
 
 .window > .header {
   display:none;
+}
+
+.tab.bookmark {
+  font-weight: bold;
+}
+.tab.history,
+.tab.bookmark {
+  font-style:oblique;
+}
+
+.tab.history:before {
+  content:"access_time";
+}
+.tab.bookmark:before {
+  content:"star_border";
+}
+.tab.bookmark:before,
+.tab.history:before {
+  font-family: 'Material Icons';
+  font-weight: normal;
+  font-style: normal;
+  font-size: 12px;
+  line-height: 1;
+  letter-spacing: normal;
+  text-transform: none;
+  display: block;
+  white-space: nowrap;
+  word-wrap: normal;
+  direction: ltr;
+  -webkit-font-feature-settings: 'liga';
+  -webkit-font-smoothing: antialiased;
+  float:left;
+  margin-left:-16px;
+  margin-right:4px;
+  opacity: 0.3;
 }
 
 .tab .title,
@@ -475,7 +516,10 @@ overflow:hidden;
   border-left: 6px solid transparent;
   border-color: var(--accent-light, transparent);
   break-inside: avoid;
+}
 
+.group:last-child {
+  margin:0;
 }
 
 
