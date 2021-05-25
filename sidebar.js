@@ -20,6 +20,7 @@ let tabRecents = [];
 var autofocus = getDefault(v({autofocus}), false);
 var preserveGroups = getDefault(v({preserveGroups}), true);
 var simplifyTitles = getDefault(v({simplifyTitles}), true); 
+var darkMode = getDefault(v({darkMode}), false); 
 
 setTimeout(() => location.reload(), 60 * 1000 * 1000)
 
@@ -38,6 +39,18 @@ chrome.tabs.getCurrent((sidebar) => {
 if (navigator.userAgent.indexOf("Windows") !== -1) {
   document.body.classList.add("windows")
 }
+
+
+function adjustColors() {
+  let matches = window.matchMedia('(prefers-color-scheme: dark)').matches
+  if (matches != darkMode) {
+    document.documentElement.classList.add("dark")
+  } else {
+    document.documentElement.classList.remove("dark")
+  }
+}
+window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', adjustColors)
+adjustColors();
 
 
 document.addEventListener('DOMContentLoaded', function() {
@@ -717,6 +730,9 @@ var Toolbar = function(vnode) {
             m('div.action', {class: simplifyTitles, title:"Simplify titles",
             onclick: () => setDefault(v({simplifyTitles}), simplifyTitles = !simplifyTitles)
             }, "Simplify titles"),
+            m('div.action', {class: darkMode, title:"Invert colors",
+            onclick: () => { setDefault(v({darkMode}), darkMode = !darkMode), adjustColors()}
+            }, "Invert colors"),
             m('hr'),
             m('div.action', {onclick: refresh},"Refresh")
           )

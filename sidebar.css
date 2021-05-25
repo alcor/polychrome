@@ -20,6 +20,7 @@ body.menu {
 
 body.windows .toolbar {
   padding-top: 12px;
+  height:48px
 }
 
 /* Toolbar */
@@ -929,8 +930,8 @@ hr {
 }
 
 /* Dark Mode */
-@media (prefers-color-scheme: dark) {
-	* {
+
+	html.dark * {
 	  --toolbar-color: #2d2d2d;
 	  --toolbar-search-color: rgba(255,255,255,0.05);
 	  --surface-color: black;
@@ -943,35 +944,34 @@ hr {
 	}
 	
 
-  .toolbar {
-
-  box-shadow: 0 0.5px 0px var(--surface-stroke-color);
+  html.dark .toolbar {
+    box-shadow: 0 0.5px 0px var(--surface-stroke-color);
   }
-	.tab:hover {
+	html.dark .tab:hover {
 	  background-color: var(--accent-highlight, --item-hover-color));
 	}
 	
-	.tab.highlighted {
+	html.dark .tab.highlighted {
 	  background-color: var(--accent-dark, --item-highlighted-color);
 	}
 	
-	.group {
+	html.dark .group {
 	  border-color: var(--accent-dark, transparent);
 	}
 	
-	.group .header .title {
+	html.dark .group .header .title {
 	  color: var(--accent-light)
 	}
 	
-	hr {
+	html.dark hr {
 	  border: none;
 	  border-bottom: 1px solid var(--surface-stroke-color);
 	}
 
-  .window.frontmost .tab.highlighted {
+  html.dark .window.frontmost .tab.highlighted {
     background-color: var(--accent-dark, hsla(220, 78%, 76%,0.3));
   }
-}
+
 
 
 @media only screen and (min-width: 512px) {
