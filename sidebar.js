@@ -6,6 +6,16 @@ var activeQuery = undefined;
 var activeQueryItems = undefined;
 var selectedItemIndex = 0;
 
+
+let tabRecents = [];
+// chrome.tabs.onActivated.addListener( async info => {;
+//   let tab = await chrome.tabs.get(info.tabId);
+//   tabRecents.unshift(tab);
+//   tabRecents.splice(4);
+//   console.log("tabrecents", tab)
+// })
+
+
 // Stored Values
 var autofocus = getDefault(v({autofocus}), false);
 var preserveGroups = getDefault(v({preserveGroups}), true);
@@ -95,7 +105,10 @@ function  searchInput(e) {
   selectedItemIndex = 0;
   m.redraw.sync();
 
-  if (query.length > 0) {
+  if (query.length > 2) {
+    let tab = document.querySelector(".tab") 
+    if (tab) focusTab(parseInt(tab.getAttribute("id")))  
+  } else if (query.length > 0) {
     performDeepSearch(query)
   } else {
     activeSearchResults = [];
@@ -634,6 +647,8 @@ var WindowManager = function(vnode) {
     view: function(vnode) {
       return [
         m(Toolbar),
+
+        m(RecentTabs, {}),
         m(WindowList, {windows:windows}),
         m(SearchResults, {results: activeSearchResults}),
         m(ContextMenu)
@@ -824,6 +839,23 @@ async function openResult(result) {
   clearSearch();
 }
 
+var RecentTabs = function(vnode) {
+  return {
+    view: function(vnode) {
+      return m("div.group.recents", tabRecents.map(tab => {
+        console.log("tab", tab)
+        return m('div.tab.result', {
+            class:"history", 
+            id: "recent" + "-" + tab.id,
+            onclick: focusTab.bind(null, tab.id, tab.windowId)
+          },
+          m('img.icon', {src: tab.favIconUrl}),
+          m('div.title', tab.title)
+        )
+      }))
+    }
+  }
+}
 
 var SearchResults = function(vnode) {
   return {
@@ -1233,7 +1265,6 @@ loadGroups()
 
 
 
-
 let restoreGroup = async (group) => {
   console.log("restore", group)
   
@@ -1305,10 +1336,10 @@ let favicons = {
   "chrome": "./img/newtab.png"
 }
 
-function focusTab(id, wid, focusTheWindow) {
-  chrome.tabs.update(id, { 'active': true });
-  
-  if (wid && (focusTheWindow || wid != lastWindowId)) { 
+async function focusTab(id, wid, focusTheWindow) {
+  let tab = await chrome.tabs.update(id, { 'active': true });
+  console.log(tab)
+  if (wid && (tab.discarded || focusTheWindow || wid != lastWindowId)) { 
     focusWindow(wid, myWindowId && !focusTheWindow)
   }
 }
