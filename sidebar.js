@@ -35,6 +35,11 @@ chrome.tabs.getCurrent((sidebar) => {
   }
 });
 
+if (navigator.userAgent.indexOf("Windows") !== -1) {
+  document.body.classList.add("windows")
+}
+
+
 document.addEventListener('DOMContentLoaded', function() {
   var root = document.body
   m.mount(root, WindowManager)
