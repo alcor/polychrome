@@ -43,7 +43,7 @@ if (navigator.userAgent.indexOf("Windows") !== -1) {
 
 function adjustColors() {
   let matches = window.matchMedia('(prefers-color-scheme: dark)').matches
-  if (matches != darkMode) {
+  if (matches || darkMode) {
     document.documentElement.classList.add("dark")
   } else {
     document.documentElement.classList.remove("dark")
@@ -730,9 +730,9 @@ var Toolbar = function(vnode) {
             m('div.action', {class: simplifyTitles, title:"Simplify titles",
             onclick: () => setDefault(v({simplifyTitles}), simplifyTitles = !simplifyTitles)
             }, "Simplify titles"),
-            m('div.action', {class: darkMode, title:"Invert colors",
+            m('div.action', {class: darkMode, title:"Dark theme",
             onclick: () => { setDefault(v({darkMode}), darkMode = !darkMode), adjustColors()}
-            }, "Invert colors"),
+            }, "Dark theme"),
             m('hr'),
             m('div.action', {onclick: refresh},"Refresh")
           )
