@@ -370,11 +370,13 @@ body:not(.menu) .tab.pinned {
   width: 38px;
   height: 36px;
   max-height: 36px;
-  line-height:36px;
 }
 body:not(.menu) .tab.pinned .icon {
   width:24px;
   height:24px;
+
+  line-height:24px;
+  font-size:24px;
 }
 
 .tab.pinned > .title {

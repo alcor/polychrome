@@ -990,7 +990,7 @@ function emojiTitleForGroupInfo(info) {
   return `${colorEmoji[info.color]} ${info.title || info.color}`;
 }
 
-function archiveGroupToDataURL(group) {
+function archiveGroupToDataURL(group, parentId = "1") {
   let links = group.tabs.map((tab) => `<p><a href="${tab.url}">${tab.title}</a>`)
   let html = [
     `${group.info.title || group.info.color}`,
@@ -1002,12 +1002,48 @@ function archiveGroupToDataURL(group) {
   ].join('');
 
   let url = 'data:text/html,' + encodeURIComponent(html).replace(/%20/g, " ");
-  return chrome.bookmarks.create({parentId: "1", title: emojiTitleForGroupInfo(group.info), url:url})
+  return chrome.bookmarks.create({parentId, title: emojiTitleForGroupInfo(group.info) + " - Group", url:url})
 }
 
 async function archiveGroup(e) {
   e.stopPropagation();
   let group = this;
+  archiveGroupToStorage(group);
+  archiveGroupToBookmarks(group);
+  chrome.tabs.remove(group.tabs.map(t => t.id));
+}
+
+async function archiveGroupToBookmarks(group) {
+  let rootId = await getBookmarkRoot();
+  let title = group.info.title || group.info.color;
+  let fancyTitle = `${colorEmoji[group.info.color]} ${title}`;
+
+  let folder = (await chrome.bookmarks.search({title:fancyTitle}))[0];
+  if (!folder) folder = await chrome.bookmarks.create({parentId: rootId, title: fancyTitle})
+
+  let tree = (await chrome.bookmarks.getSubTree(folder.id))[0];
+
+  for (var node of tree.children) {
+    if (!node.children) {
+      let result = await chrome.bookmarks.remove(node.id);
+    }
+  }
+
+
+  // let urlArray = group.tabs.map(tab => {return tab.url;})
+  // urlArray = encodeURIComponent(JSON.stringify(urlArray))
+  // return chrome.bookmarks.create({parentId: "1", title: fancyTitle, url:url})
+  let promises = [];
+  group.tabs.forEach(tab => {
+    promises.push(chrome.bookmarks.create({parentId: folder.id, title: tab.title, url: tab.url}))
+  })
+  let results = await Promise.all(promises);
+  console.log("result", results)
+
+  //archiveGroupToDataURL(group, folder.id)
+}
+
+function archiveGroupToStorage(group) {
   let title = group.info.title || group.info.color;
   let fancyTitle = `${colorEmoji[group.info.color]} ${title}`;
 
@@ -1026,27 +1062,6 @@ async function archiveGroup(e) {
     groupList.push(info);
     m.redraw();
   })
-
-  chrome.tabs.remove(this.tabs.reverse().map(t => t.id))
-  
-  // getBookmarkRoot()
-  // .then(rootId => {
-  //   console.log("got id", rootId, group)
-  //   // return chrome.bookmarks.create({parentId: rootId, title: title})
-  // })
-  // .then((folder) => {
-  //   let promises = [];
-  //   let urlArray = group.tabs.map(tab => {return tab.url;})
-  //   urlArray = encodeURIComponent(JSON.stringify(urlArray))
-  //   return chrome.bookmarks.create({parentId: "1", title: fancyTitle, url:url})
-  //   group.tabs.forEach(tab => {
-  //     promises.push(chrome.bookmarks.create({parentId: folder.id, title: tab.title, url: tab.url}))
-  //   })
-  //   return Promise.all(promises);
-  // })
-  // .then(results => {
-  //   chrome.tabs.remove(this.tabs.map(t => t.id))
-  // })
 }
 
 var bookmarkRoot = getDefault(v({bookmarkRoot}));
