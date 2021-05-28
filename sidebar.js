@@ -125,7 +125,7 @@ function  searchInput(e) {
 
   if (query.length > 2) {
     let tab = document.querySelector(".tab") 
-    if (tab) focusTab(parseInt(tab.getAttribute("id")))  
+    if (tab && !isMenuMode) focusTab(parseInt(tab.getAttribute("id")))  
   } else if (query.length > 0) {
     performDeepSearch(query)
   } else {
@@ -1115,6 +1115,7 @@ function groupTabs(e) {
   if (true) {
     chrome.tabs.query({highlighted:true, windowId:windowID})
     .then(tabs => {
+      // TODO: Check if the context target is different than highlighted tabs
       chrome.tabs.group({tabIds:tabs.map(t => t.id), createProperties:{windowId:windowID}})
       .then(group => { 
         setTimeout(editGroup.bind(group), 50);
