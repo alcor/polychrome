@@ -675,6 +675,29 @@ var WindowManager = function(vnode) {
   }
 }
 
+async function arrangeWindows() {
+  let sidebar = await chrome.windows.get(myWindowId)
+  let windows = await chrome.windows.getAll({populate:true, windowTypes:['normal']});
+  let screen = window.screen;
+
+  console.log("window", sidebar, screen, windows)
+
+  let sidebarRect = {
+    left: screen.availLeft, 
+    top: screen.availTop, 
+    height:screen.availHeight, 
+    width:sidebar.width
+  };
+  let windowsRect = {
+    left: screen.availLeft + sidebar.width,
+    top: screen.availTop, 
+    height: screen.availHeight, 
+    width: screen.availWidth - sidebar.width
+  }
+  chrome.windows.update(sidebar.id, sidebarRect);
+  windows.forEach(w => chrome.windows.update(w.id, windowsRect));
+}
+
 function discardAllTabs() {
   windows.forEach(w => {
     w.tabs.forEach(tab => {
@@ -708,6 +731,11 @@ var Toolbar = function(vnode) {
         m('div.button',
           m('span.material-icons','sort'),
           m('div.sort.menu',
+          m('div.action', {class: darkMode, title:"Align Windows",
+          onclick: arrangeWindows
+          }, "Align Windows"),
+          m('hr'),
+
           m('div.action', {onclick:() => { removeDuplicates() }}, "Remove Duplicates"),
           m('div.action', {onclick:() => { discardAllTabs() }}, "Unload all tabs"),
           m('hr'),
