@@ -392,7 +392,7 @@ document.addEventListener("dragenter", function( event ) {
   let dropIndex = parseInt(target.getAttribute("index"));
   
   if (!target || target == draggedItem) return;
-  if (target) target.classList.add("droptarget", true);
+  //if (target) target.classList.add("droptarget", true);
 }, false);
 
 document.addEventListener("dragleave", function( event ) {
@@ -413,6 +413,7 @@ document.addEventListener("dragover", function( event ) {
     event.preventDefault();
     let bottomHalf = event.offsetY >= target.clientHeight / 2;
     target.classList.toggle("after", bottomHalf);
+    target.classList.add("droptarget", true);
 
     let dropIndex = parseInt(target.getAttribute("index")) || -1;
 
@@ -444,6 +445,7 @@ document.addEventListener("drop", async function( event ) {
   let headerTarget = target.classList.contains("header");
 
   if (after && !headerTarget) dropIndex++;
+  if (dropIndex == -2) dropIndex = 0;
   console.log(`move from ${dragIndex} to ${dropIndex}  in w:${dropWid} > g:${dropGid}`)
   if (dropIndex > dragIndex) dropIndex--;
   console.log(`move from ${dragIndex} to ${dropIndex}  in w:${dropWid} > g:${dropGid}`)
@@ -826,18 +828,25 @@ var Window = function(vnode) {
 
       var classList = [];
       if (w.id == lastWindowId) classList.push('frontmost');
-      let groupNodes =  groups.map((group, i) => m(TabGroup, {group, key:group.id > 0 ? group.id : i}));
-
-      groupNodes = groupNodes.filter(function (el) {
-        return el != undefined;
+      let groupNodes = [];
+      
+      groups.forEach((group, i) => {
+        let el = m(TabGroup, {group, key:group.id > 0 ? group.id : i});
+        if (el) {
+          groupNodes.push(m('div.group-padding', {key:group.id+"-before", index:i, wid:w.id}))
+          groupNodes.push(el);
+        }
       });
       if (!groupNodes.length) return undefined;
 
-      return m('div.window', {class:classList,
+      return m('div.window', {
+            class:classList,
             onclick:(e) => {clearContext(); e.preventDefault();},
-            oncontextmenu: (e) => {e.preventDefault();}}, [
+            oncontextmenu: (e) => {e.preventDefault();},
+            index:-2
+          }, [
           m('div.header', m('div.title', "Window " + w.id)),
-          m('div.contents',groupNodes)
+          m('div.contents',groupNodes),
       ])
     }
   }

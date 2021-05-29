@@ -520,13 +520,16 @@ overflow:hidden;
 /* Groups */
 
 .group {
-  margin: 0 0px 4px 0px;
+  margin: 0 0px 0px 0px;
   padding: 0 0 0 0px;
   border-left: 6px solid transparent;
   border-color: var(--accent-light, transparent);
   break-inside: avoid;
 }
 
+.group-padding {
+height:6px;
+}
 .group:last-child {
   margin:0;
 }
@@ -575,7 +578,6 @@ overflow:hidden;
 .group.collapsed {
   flex-direction:row;
   flex-wrap:nowrap;
-  overflow:hidden;
   display: flex;
   flex-wrap:nowrap;
 
@@ -754,37 +756,50 @@ overflow:hidden;
   opacity: 1.0;
 }
 
+.window.droptarget.after::after,
 .droptarget::before {
   content:"";
   height:2px;
   width:100%;
   position:absolute;
-  margin-top:-28px;
-  left:0px;
-  background-color: var(--text-color);
+  left:2px;
+  background-color: var(--text-color); 
   pointer-events: none;
+  z-index:10;
+  transition:transform 100ms ease-out;
 }
 
+.droptarget::before {
+  transform:translateY(-14px);
+}
 .droptarget.after::before {
-  margin-top:27px;
+  transform:translateY(14px);
+}
 
-  /* background-color: gray; */
+.droptarget.group-padding::before,
+.droptarget.group-padding.after::before {
+  transform:translateY(2px);
+  left:8px;
+}
+
+
+.group:not(.no-group) .droptarget:not(.header)::before,
+.group:not(.no-group) .droptarget.after::before {
+  background-color: var(--accent-intense); 
+}
+
+.window.droptarget::before{
+  display:none;
 }
 
 .group > .header.droptarget::before {
-  /* margin-top:0px; */
-  /* left:16px; */
+  transform:translateY(-17px);  
+  background-color: var(--text-color);
 }
 .group > .header.droptarget.after::before {
-  /* margin-top:23px; */
+  transform:translateY(14px);  
+  background-color: var(--accent-intense, black);
 }
-/* 
-.droptarget:not(.after) {
-  border-top: 2px solid var(--text-color);
-}
-.droptarget.after {
-  border-bottom: 2px solid var(--text-color);
-} */
 
 .collapsed .droptarget:not(.header) {
   border-right: 2px solid var(--text-color);
@@ -929,6 +944,7 @@ hr {
   --item-active-color: hsla(220, 78%, 76%,0.3);
   --item-highlighted-color: rgba(0,0,0,0.1);
   --accent-highlight: rgba(0,0,0,0.05);
+  --accent-intense: var(--accent-dark, --text-color);
 }
 
 /* Dark Mode */
@@ -943,6 +959,8 @@ hr {
     --item-hover-color: rgba(255,255,255,0.2);
     --item-active-color: hsla(220, 78%, 76%,0.3);
     --item-highlighted-color: rgba(255,255,255,0.2);
+    --accent-intense: var(--accent-light, --text-color);
+
 	}
 	
 
@@ -950,7 +968,7 @@ hr {
     box-shadow: 0 0.5px 0px var(--surface-stroke-color);
   }
 	html.dark .tab:hover {
-	  background-color: var(--accent-highlight, --item-hover-color));
+	  background-color: var(--accent-highlight, --item-hover-color);
 	}
 	
 	html.dark .tab.highlighted {
