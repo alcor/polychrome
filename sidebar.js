@@ -1079,7 +1079,7 @@ async function archiveGroupToBookmarks(group) {
     promises.push(chrome.bookmarks.create({parentId: folder.id, title: tab.title, url: tab.url}))
   })
   let results = await Promise.all(promises);
-  
+
 }
 
 function archiveGroupToStorage(group) {
@@ -1339,6 +1339,17 @@ loadGroups()
 
 
 
+let deleteGroup = async (group, e) => {
+e.preventDefault();
+  let storage = chrome.storage.sync;
+  let key = 'group-' + (group.title || group.color);
+  storage.remove(key);
+
+  groupList.splice(groupList.indexOf(group),1)
+
+  m.redraw();
+
+}
 
 let restoreGroup = async (group) => {
   console.log("restore", group)
@@ -1380,10 +1391,11 @@ var ArchivedGroups = function(vnode) {
   return {
     view: function(vnode) {
       let groups = vnode.attrs.groups;
+      if (!groups.length) return undefined;
        groups.sort(sortByKey.bind(null, "ts"));
       return m('div.group-archive', {class: groupsExpanded ? "expanded" : undefined},
       m('div.toggle.material-icons', {onclick:toggleGroupArchive}, groupsExpanded ? "keyboard_arrow_down" : "keyboard_arrow_up"),
-      groups.reverse().map( g => m('div.group-token', {class:g.color, onclick:restoreGroup.bind(null,g)},
+      groups.reverse().map( g => m('div.group-token', {class:g.color, onclick:restoreGroup.bind(null,g), oncontextmenu:deleteGroup.bind(null,g)},
          m('div.title', g.title || g.color)
          ))
       )
