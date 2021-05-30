@@ -272,14 +272,14 @@ div.menu.visible {
 }
 .tab.history,
 .tab.bookmark {
-  font-style:oblique;
+  xfont-style:oblique;
 }
 
 .tab.history:before {
   content:"access_time";
 }
 .tab.bookmark:before {
-  content:"star_border";
+  content:"star";
 }
 .tab.bookmark:before,
 .tab.history:before {
@@ -397,11 +397,13 @@ body:not(.menu) .tab.pinned .icon {
 }
 
 
-.tab.active {
+.windows:not(.searching) .tab.active,
+.tab.selected {
   background-color: var( --item-hover-color);
   color: var(--text-color);
   font-weight: 500;
 }
+
 
 .tab.dragged,
 .group.dragged {
@@ -844,7 +846,7 @@ x.group-token::before {
   height: 2px;
 }
 
-.window.frontmost .tab.highlighted {
+.windows:not(.searching) .window.frontmost .tab.highlighted {
   background-color: var(--accent-light, hsla(220, 78%, 76%,0.3));
 }
 
@@ -1004,7 +1006,7 @@ hr {
 	  background-color: var(--accent-highlight, --item-hover-color);
 	}
 	
-	html.dark .tab.highlighted {
+	html.dark .windows:not(.searching) .tab.highlighted {
 	  background-color: var(--accent-dark, --item-highlighted-color);
 	}
 	
@@ -1021,7 +1023,7 @@ hr {
 	  border-bottom: 1px solid var(--surface-stroke-color);
 	}
 
-  html.dark .window.frontmost .tab.highlighted {
+  html.dark .windows:not(.searching) .window.frontmost .tab.highlighted {
     background-color: var(--accent-dark, hsla(220, 78%, 76%,0.3));
   }
 

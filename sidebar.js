@@ -4,7 +4,8 @@ var activeSearchResults = [];
 
 var activeQuery = undefined;
 var activeQueryItems = undefined;
-var selectedItemIndex = 0;
+var selectedItemId;
+const SEARCH_PREFIX = "search:"
 
 
 let tabRecents = [];
@@ -57,10 +58,8 @@ document.addEventListener('DOMContentLoaded', function() {
   var root = document.body
   m.mount(root, WindowManager)
   var searchEl = document.getElementById("search");
-  searchEl.oninput = searchInput;
-  searchEl.onkeypress = searchKey;
   searchEl.focus();
-  //handleInput();
+
   chrome.storage.onChanged.addListener(function(changes, namespace) {
     for (let key in changes) {
       var storageChange = changes[key];
@@ -108,29 +107,25 @@ if (navigator.platform == 'MacIntel') {
 }
 
 
-let render = function() {
-  m.redraw.sync();
-  let tab = document.querySelector(".tab") 
-  let id = tab.getAttribute("id");
-  if (id && !isMenuMode) focusTab(parseInt(id))
-}
 
-function  searchInput(e) {
+function searchInput(e) {
   if (!e) return;
   var query = e ? e.target.value : undefined;
   activeQuery = query;
   activeQueryItems = [];
-  selectedItemIndex = 0;
+  selectedItemId = undefined;
   m.redraw.sync();
-
-  if (query.length > 2) {
-    let tab = document.querySelector(".tab") 
-    if (tab && !isMenuMode) focusTab(parseInt(tab.getAttribute("id")))  
-  } else if (query.length > 0) {
+  if (query.length > 0) {
     performDeepSearch(query)
+    if (query.length > 2) {
+      let tab = document.querySelector(".tab") 
+      let id = tab.getAttribute("id");
+      selectedItemId = id;
+      if (id && !isMenuMode) focusTab(parseInt(id));
+    }
   } else {
     activeSearchResults = [];
-    render();
+    m.redraw.sync();
   }
 }
 
@@ -144,12 +139,33 @@ async function performDeepSearch(query) {
   chrome.history.search({text:query}, history => {
     chrome.bookmarks.search({query:query}, bookmarks => {
       let results = history.concat(bookmarks);
+
       results.sort(sortResults);
-      // TODO: Remove duplicate titles;
+
+      let titles = {};
+      let prunedResults = [];
+
+      results.forEach(r => {
+        if (!titles[r.title]) {
+          titles[r.title] = r;
+          prunedResults.push(r);
+        }
+      }) 
       
-      results.splice(10);
+
+      prunedResults.unshift({title:query, url:SEARCH_PREFIX + query})
+
+      if (query.indexOf(".") > 0 && query.indexOf(" ") < 0) {
+        let url = "https://" + query
+        prunedResults.unshift({title:query, url:url});
+      }
+
+      prunedResults.splice(10);
+
+
       if (query == activeQuery) {
-        activeSearchResults = results;
+        activeSearchResults = prunedResults;
+        m.redraw();
       }
     })
   })
@@ -158,18 +174,26 @@ async function performDeepSearch(query) {
 
 
 function searchKey(e) {
-
   if (e.key == "Escape" && isMenuMode) {
     window.close();
     return;
   }
+
   if (e.key == "Enter") {
+    e.preventDefault();
+    e.stopPropagation();
     let tabs = document.getElementsByClassName("tab");
-    let tab = Array.from(tabs).filter(t => t.classList.contains('active'))[0];
-    console.log("active", tab, tabs)
+    let tab = Array.from(tabs).filter(t => t.id == selectedItemId)[0];
+    
     let id = parseInt(tab.getAttribute('id'))
     let wid =  parseInt(tab.getAttribute('wid'))
-    focusTab(id, wid, true);
+    let url = tab.getAttribute('href');
+
+    if (url) {
+      openResult(url)
+    } else {
+      focusTab(id, wid, true); 
+    }
     clearSearch();
     return;
   }
@@ -180,7 +204,7 @@ function clearSearch() {
   searchEl.value = "";
   activeQuery = ""
   activeQueryItems = undefined
-  selectedItemIndex = 0;
+  selectedItemId = undefined;
   activeSearchResults = [];
   m.redraw();
 }
@@ -485,19 +509,25 @@ document.addEventListener("dragend", function( event ) {
 
 window.onkeydown = function(event) {
   if (event.key == "ArrowUp" || event.key == "ArrowDown") {
-    let direction = event.key == "ArrowDown" ? 1 : -1;
     event.preventDefault();
+
+    let direction = event.key == "ArrowDown" ? 1 : -1;    
 
     let tabs = document.querySelectorAll(".tab")
     tabs = Array.from(tabs);
-    let index = tabs.findIndex(t => t.classList.contains("active"))
-    if (index < 0) index = selectedItemIndex;
 
-    selectedItemIndex = index + direction;
-    let tab = tabs[selectedItemIndex] || tabs[0];
-    let id = tab.getAttribute("id");
-    if (id && !isMenuMode) focusTab(parseInt(id))
+    let index = tabs.findIndex(t => t.id == selectedItemId);
+    if (index < 0) index = tabs.findIndex(t => t.classList.contains("active"))
+    if (index < 0) index = 0;
     
+    let selectedItemIndex = index + direction;
+    let tab = tabs[selectedItemIndex] || tabs[0];
+
+    let id = tab.getAttribute("id");
+    selectedItemId = id;
+
+    if (parseInt(id) && !isMenuMode) focusTab(parseInt(id))
+    m.redraw();
   } 
   if (event.metaKey && !event.shiftKey && event.key == 't') { // C-T
     chrome.tabs.create({})
@@ -781,7 +811,13 @@ var Search = function(vnode) {
   return {
     view: function() {
       return [
-        m("div.search", m("input#search", {type:"search", key:"search", placeholder:"Filter", autocomplete:"off"}))
+        m("div.search", m("input#search", {
+          type:"search", 
+          key:"search", 
+          placeholder:"Filter",
+          oninput: searchInput,
+          onkeydown: searchKey, 
+          autocomplete:"off"}))
       ]  
     }
   }
@@ -837,7 +873,7 @@ var Window = function(vnode) {
       groups.forEach((group, i) => {
         let el = m(TabGroup, {group, key:group.id > 0 ? group.id : i});
         if (el) {
-          groupNodes.push(m('div.group-padding', {key:group.id+"-before-" + i, index:i, wid:w.id}))
+          //groupNodes.push(m('div.group-padding', {key:group.id+"-before-" + i, index:i, wid:w.id}))
           groupNodes.push(el);
         }
       });
@@ -895,10 +931,15 @@ function showContextMenu(e) {
   contextTarget = this;
   contextEvent = e;
 }
-async function openResult(result) {
-  let tab = await chrome.tabs.create({url: result.url, selected:true, active:true})
-  chrome.windows.update(tab.windowId, { "focused": true })
-  clearSearch();
+async function openResult(url) {
+  if (url.startsWith(SEARCH_PREFIX)) {
+    let query = url.slice(SEARCH_PREFIX.length)
+    chrome.search.query({text:query, disposition:"NEW_TAB"})
+  } else {
+    let tab = await chrome.tabs.create({url: url, selected:true, active:true})
+    chrome.windows.update(tab.windowId, { "focused": true })
+    clearSearch();
+  }
 }
 
 var RecentTabs = function(vnode) {
@@ -925,12 +966,23 @@ var SearchResults = function(vnode) {
       let results = vnode.attrs.results;
       return m('div.group.search-results', results.map((tab) => {
         let host = tab.url ? new URL(tab.url).hostname : tab.url;
-        let type = tab.lastVisitTime ? "history" : "bookmark";
+        let type = tab.url.startsWith(SEARCH_PREFIX) ? "search" : "site";
+        if (tab.lastVisitTime) type = "history";
+        if (tab.parentId) type = "bookmark";
+        let id = type + "-" + tab.id;
+
+        let classList = [type];
+        if (selectedItemId == id) classList.push("selected");
+
         let favIconUrl = tab.favIconUrl || favicons[host] || (host && host.length ?`https://www.google.com/s2/favicons?domain=${host}` : undefined)
-        return m('div.tab.result', {
-            class:type, 
-            id: type + "-" + tab.id,
-            onclick: openResult.bind(null, tab)
+        
+        if (type == "search") favIconUrl = "/img/search.svg"
+        if (!favIconUrl) favIconUrl = "/img/icon-url.png"
+
+        return m('div.tab.result', { class: classList.join(" "),
+            id: id,
+            href: tab.url,
+            onclick: openResult.bind(null, tab.url)
           },
           m('img.icon', {src: favIconUrl}),
           m('div.title', tab.title)
@@ -1283,7 +1335,7 @@ var TabGroup = function(vnode) {
             ) {
             return;
           }
-          //if (selectedItemIndex == activeQueryItems.length) tab.activeResult = true;
+
           activeQueryItems.push(tab.id);
         }
 
@@ -1430,11 +1482,12 @@ let favicons = {
 }
 
 async function focusTab(id, wid, focusTheWindow) {
+  if (!id) return false;
   let tab = await chrome.tabs.update(id, { 'active': true });
-  console.log(tab)
   if (wid && (tab.discarded || focusTheWindow || wid != lastWindowId)) { 
     focusWindow(wid, myWindowId && !focusTheWindow)
   }
+  return true;
 }
 
 async function focusWindow(wid, reactivateSelf) {
@@ -1503,6 +1556,8 @@ var Tab = function(vnode) {
         classList.push('indent-' + tab.indent);
       }
 
+
+      if (selectedItemId == tab.id) classList.push("selected");
 
       if (contextTarget && (tab.id == contextTarget.id)) classList.push("showingMenu");
       let titles = titleForTab(tab)

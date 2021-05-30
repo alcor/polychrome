@@ -28,7 +28,7 @@
     }
   },
   "permissions": [
-    "tabs", "tabGroups", "storage", "bookmarks", "history" 
+    "tabs", "tabGroups", "storage", "bookmarks", "history", "search"
   ],
   "manifest_version": 3
 }
