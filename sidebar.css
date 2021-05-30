@@ -174,9 +174,11 @@ div.menu.visible {
   animation: load8 1.1s infinite linear;
 }
 
+
 .windows {
   /* column-count:3;
   column-gap:1px; */
+  padding:0 0 0 0;
   flex:1 0 auto;
   overflow-x:hidden;
 }
@@ -221,7 +223,9 @@ div.menu.visible {
   background:var(--surface-focused-color);
 }
 
-
+.group.search-results {
+  padding:0 0 50vh 0;
+}
 .window, .tab, .group {
   scroll-margin-top: 48px;
   position:relative;
@@ -640,7 +644,7 @@ height:6px;
 
 .group > .header > .title {
   letter-spacing: 1px;
-  font-size: smaller;
+  font-size: 10px;
   padding-top: 0;
   padding-left: 16px;
   font-weight: 600;
@@ -672,21 +676,50 @@ height:6px;
 
 .group-archive {
   display:flex;
-  flex-wrap: wrap;
-  padding:4px;
+  padding:12px 32px 12px 40px;
   cursor:default;
-  max-width:160px;
+  position:fixed;
+  bottom:0px;
+  left:0px;
+  right:0px;
+  width:auto;
+  background-color: var(--surface-focused-color);
+  overflow-x:scroll;
+  border-top:1px solid var(--surface-stroke-color);
+  
+}
+
+.group-archive .toggle {
+  left: 18px;
+  float:left;
+  margin-left:-28px;
+  height:20px;
+  width:28px;
+}
+.group-archive.expanded {
+  flex-wrap: wrap;
+}
+x.group-token::before {
+  content:'';
+  width:8px;
+  height: 8px;
+  background-color:var(--accent-intense);
+  display:inline-block;
+  margin-right: 6px;
+  border-radius:4px;
 }
 
 .group-token {
-
-  padding: 0px 16px 0px 16px;
-  height:28px;
-  line-height:28px;
-  font-size:12px;
+  display:flex;
+  align-items: center;
+  padding: 0px 8px 0px 8px;
+  height:20px;
+  line-height:20px;
+  font-size:10px;
   color:var(--accent-dark);
   text-transform:uppercase;
   font-weight:bold !important;
+  border-radius:14px;
 }
 .group-token:hover {
   background-color:var(--accent-dark);

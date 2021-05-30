@@ -191,6 +191,9 @@ function sortByDomain(a,b) {
 function sortByTitle(a,b) {
   return a.title.localeCompare(b.title);
 }
+function sortByKey(key, a, b) {
+  return a[key] - b[key];
+}
 
 function typeForTab(tab) {
   if (/[docs|sheets|slides]\.google\.com/.test(tab.hostname)) {
@@ -671,7 +674,8 @@ var WindowManager = function(vnode) {
         m(RecentTabs, {}),
         m(WindowList, {windows:windows}),
         m(SearchResults, {results: activeSearchResults}),
-        m(ContextMenu)
+        m(ContextMenu),
+        m(ArchivedGroups, {groups:groupList})
       ] 
     }
   }
@@ -725,11 +729,11 @@ var Toolbar = function(vnode) {
       return m("div.toolbar", 
         m(Search),
         myWindowId ? undefined : m('div.button#popout', {onclick:popOutSidebar}, m('span.material-icons','open_in_new')),
-        groupList.length ? m('div.button',
-          m('span.material-icons','label_outline'),
-          m('div.sort.menu',
-            m(ArchivedGroups, {groups:groupList})
-          )) : undefined,
+        // groupList.length ? m('div.button',
+        //   m('span.material-icons','label_outline'),
+        //   m('div.sort.menu',
+        //     m(ArchivedGroups, {groups:groupList})
+        //   )) : undefined,
         m('div.button',
           m('span.material-icons','sort'),
           m('div.sort.menu',
@@ -833,7 +837,7 @@ var Window = function(vnode) {
       groups.forEach((group, i) => {
         let el = m(TabGroup, {group, key:group.id > 0 ? group.id : i});
         if (el) {
-          groupNodes.push(m('div.group-padding', {key:group.id+"-before", index:i, wid:w.id}))
+          groupNodes.push(m('div.group-padding', {key:group.id+"-before-" + i, index:i, wid:w.id}))
           groupNodes.push(el);
         }
       });
@@ -1045,8 +1049,8 @@ function archiveGroupToDataURL(group, parentId = "1") {
 async function archiveGroup(e) {
   e.stopPropagation();
   let group = this;
-  archiveGroupToStorage(group);
-  archiveGroupToBookmarks(group);
+  await archiveGroupToStorage(group);
+  await archiveGroupToBookmarks(group);
   chrome.tabs.remove(group.tabs.map(t => t.id));
 }
 
@@ -1075,9 +1079,7 @@ async function archiveGroupToBookmarks(group) {
     promises.push(chrome.bookmarks.create({parentId: folder.id, title: tab.title, url: tab.url}))
   })
   let results = await Promise.all(promises);
-  console.log("result", results)
-
-  //archiveGroupToDataURL(group, folder.id)
+  
 }
 
 function archiveGroupToStorage(group) {
@@ -1087,6 +1089,7 @@ function archiveGroupToStorage(group) {
   let info = {
     title: group.info.title,
     color: group.info.color,
+    ts: new Date().getTime(),
     tabs: group.tabs.map( (tab) => ({url: tab.url, title:tab.title}) )
   };
   
@@ -1097,7 +1100,6 @@ function archiveGroupToStorage(group) {
   let storage = chrome.storage.sync;
   storage.set(record, (r1) => {
     groupList.push(info);
-    m.redraw();
   })
 }
 
@@ -1329,7 +1331,6 @@ async function loadGroups() {
       if (!key.startsWith("group")) continue;
       list.push(result[key])
     }
-    console.log("Loaded Groups",list);
     groupList = list;
   });
 }
@@ -1371,15 +1372,21 @@ let restoreGroup = async (group) => {
   } 
 };
 
+var groupsExpanded = false;
 var ArchivedGroups = function(vnode) {
+  function toggleGroupArchive() {
+    groupsExpanded = !groupsExpanded; 
+  }
   return {
     view: function(vnode) {
       let groups = vnode.attrs.groups;
-      return groups.map( g => m('div.group-token', {class:g.color, onclick:restoreGroup.bind(null,g)},
+       groups.sort(sortByKey.bind(null, "ts"));
+      return m('div.group-archive', {class: groupsExpanded ? "expanded" : undefined},
+      m('div.toggle.material-icons', {onclick:toggleGroupArchive}, groupsExpanded ? "keyboard_arrow_down" : "keyboard_arrow_up"),
+      groups.reverse().map( g => m('div.group-token', {class:g.color, onclick:restoreGroup.bind(null,g)},
          m('div.title', g.title || g.color)
-        // close;
          ))
-      
+      )
     }
   }
 }
@@ -1522,7 +1529,6 @@ var Tab = function(vnode) {
     }
   }
 }
-
 
 chrome.runtime.onMessage.addListener(
   function(request, sender, sendResponse) {
