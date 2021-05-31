@@ -536,6 +536,11 @@ overflow:hidden;
 .group-padding {
 height:6px;
 }
+
+.windows.searching .group-padding {
+  display:none;
+}
+
 .group:last-child {
   margin:0;
 }

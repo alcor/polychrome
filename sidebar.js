@@ -873,7 +873,7 @@ var Window = function(vnode) {
       groups.forEach((group, i) => {
         let el = m(TabGroup, {group, key:group.id > 0 ? group.id : i});
         if (el) {
-          //groupNodes.push(m('div.group-padding', {key:group.id+"-before-" + i, index:i, wid:w.id}))
+          groupNodes.push(m('div.group-padding', {key:group.id+"-before-" + i, index:i, wid:w.id}))
           groupNodes.push(el);
         }
       });
@@ -1014,8 +1014,8 @@ var ContextMenu = function(vnode) {
         return m("div.menu#contextmenu", {class:'visible', style:style},
           m('div.action.group-tabs', {title:'Group', onclick:groupTabs.bind(item)},
             m('span.material-icons',"layers"), 'Group Tabs'),
-            m('div.action.archive', {title:'Archive', onclick:archiveTab.bind(item)}, 
-              m('span.material-icons',"save_alt"), "Archive"),
+            // m('div.action.archive', {title:'Archive', onclick:archiveTab.bind(item)}, 
+            //   m('span.material-icons',"save_alt"), "Archive"),
             m('div.action.close', {onclick: close.bind(item)}, m('span.material-icons',"close"), "Close")
           // m('div.action.popout', {title:'Pop Out', onclick:popOutTab.bind(item)},
           //   m('span.material-icons',"open_in_new"), 'Move to new window')
@@ -1586,7 +1586,7 @@ var Tab = function(vnode) {
       return m('div.tab', attrs,
         m('div.loader'),
         m('div.actions',
-          m('div.action.archive', {title:'Archive', onclick:archiveTab.bind(tab)}, m('span.material-icons',"save_alt")),
+          // m('div.action.archive', {title:'Archive', onclick:archiveTab.bind(tab)}, m('span.material-icons',"save_alt")),
           
           m('div.action.close', {onclick: close.bind(tab)}, m('span.material-icons',"close"))
         ),
