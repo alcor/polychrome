@@ -4,19 +4,58 @@ chrome.runtime.onInstalled.addListener(function() {
 });
 
 
-chrome.commands.onCommand.addListener(focusSidebar);
-chrome.action.onClicked.addListener(focusSidebar);
+chrome.commands.onCommand.addListener((command) => {
+  if (command == "search") {
+    toggleSearch();
+  } else if (command == "sidebar") {
+    toggleSidebar();
+  }
+});
 
 
-const DEFAULT_WIDTH = 256
-async function focusSidebar() {
+const SEARCH_WIDTH = 320;
+async function toggleSearch() {
+  let url = chrome.runtime.getURL("search.html");
+  let tabs = await chrome.tabs.query({url:url});
+  let win = await chrome.windows.getLastFocused({populate:false, windowTypes:['normal']})
+  if (tabs && tabs.length) {
+      let sidebarId = tabs[0].windowId;
+//      let sidebar = await chrome.windows.get(sidebarId)
+      chrome.windows.update(sidebarId, {focused:true})
+
+  } else {
+    await chrome.windows.create({
+      url: url,
+      type: "popup",
+      width: SEARCH_WIDTH,
+      height:28 + 48 + 96,
+      left:win.left + 13,
+      top:win.top + 7,
+    });
+  }
+
+}
+
+
+const DEFAULT_WIDTH = 256;
+async function toggleSidebar() {
   let url = chrome.runtime.getURL("sidebar.html");
   let tabs = await chrome.tabs.query({url:url});
-  console.log(tabs);
+  let win = await chrome.windows.getLastFocused({populate:true, windowTypes:['normal']})
   if (tabs.length) {
-    chrome.windows.update(tabs[0].windowId, {focused:true})
+    let sidebarId = tabs[0].windowId;
+    let sidebar = await chrome.windows.get(sidebarId)
+    console.log(tabs[0], sidebar);
+      if (sidebar.focused) {
+        chrome.windows.remove(sidebarId)
+        console.log(sidebar.height, win.height, win.left, sidebar.width)
+        if (sidebar.height >= win.height && win.left >= sidebar.width) {
+          await chrome.windows.update(win.id, {width: win.width + sidebar.width, left:win.left - sidebar.width});
+        }
+      } else {
+        chrome.windows.update(sidebarId, {focused:true})
+      }
   } else {
-    let win = await chrome.windows.getLastFocused({populate:true, windowTypes:['normal']})
     console.log(win, url);
     let adjustWindow = win.left < DEFAULT_WIDTH;
     await chrome.windows.create({
