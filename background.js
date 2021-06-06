@@ -1,6 +1,6 @@
-
 chrome.runtime.onInstalled.addListener(function() {
-  console.log("Astrolabe Installed");
+  console.log("Polychrome Installed");
+
 });
 
 

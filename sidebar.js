@@ -56,9 +56,10 @@ window.addEventListener('blur', windowBlurred);
 function windowBlurred() {
   //console.log('blur')
   queryTab = undefined;
-  clearSearch();
   if (isSearchMode) {
     //chrome.windows.remove(myWindowId);
+  } else {
+    clearSearch();
   }
 }
 if (navigator.userAgent.indexOf("Windows") !== -1) {
@@ -161,12 +162,49 @@ function sortResults(a,b) {
   return order;
 }
 
+let SUGGEST_BASE = "https://suggestqueries.google.com/complete/search?client=chrome&q="
+async function suggestResults(query) {
+  const response = await fetch(SUGGEST_BASE + encodeURIComponent(query),  {"mode": 'no-cors'})
+  const results = await response.json();
+  console.debug ("results", results)
+  let items = [];
+  const urls = results[1];
+  const titles = results[2];
+  const relevances = results[4]['google:suggestrelevance'];
+  const types = results[4]['google:suggesttype'];
+  const subtypes = results[4]['google:suggestsubtypes'] || [];
+  for (let i in urls) {
+    let url = urls[i].startsWith("http") ? urls[i] : SEARCH_PREFIX + urls[i];
+    let title = titles[i].length ? titles[i] : urls[i];
+    let type = types[i];
+    items.push({
+      url, title, type,
+      id:url,
+      relevance:relevances[i],
+      subtypes:subtypes[i]
+    });
+  }
+  console.debug(items)
+  return items;
+}
+
+function historySearch(params) {
+return new Promise(resolve => chrome.history.search(params, resolve));
+}
+
 async function performDeepSearch(query, callback) {
-  chrome.history.search({text:query}, history => {
-    chrome.bookmarks.search({query:query}, bookmarks => {
+  let history = await historySearch({text:query});
+  let bookmarks = await chrome.bookmarks.search({query:query})
+  let suggest = await suggestResults(query);
+
+  // chrome.history.search({text:query}, history => {
+  //   chrome.bookmarks.search({query:query}, bookmarks => {
       let results = history.concat(bookmarks);
 
+      
       results.sort(sortResults);
+
+      results = results.concat(suggest)
 
       let titles = {};
       let prunedResults = [];
@@ -199,8 +237,8 @@ async function performDeepSearch(query, callback) {
         console.debug("discarding", query, activeQuery)
         callback(false)
       }
-    })
-  })
+  //   })
+  // })
 
 }
 
@@ -985,32 +1023,40 @@ function submitSearch() {
 }
 
 async function focusResult(url, immediately, focusWindow) {
-  let tabId = queryTab?.id;
+
 
   if (url.startsWith(SEARCH_PREFIX)) {
     let query = url.slice(SEARCH_PREFIX.length)
-    if (tabId) {
-      currentSearch = {text:query, tabId: tabId}
-    } else {
-      currentSearch = {text:query, disposition: "NEW_TAB"}
+    
+    if (!queryTab && immediately) {
+      queryTab = await chrome.tabs.create({url: "about:blank", active:true})
     }
+
+    // if (queryTab) {
+      
+    // } else {
+    //   currentSearch = {text:query, disposition: "NEW_TAB"}
+    // }
   
     if (immediately) {
+      currentSearch = {text:query, tabId: queryTab.id}
       submitSearch();
     } else if (!currentSearchTimeout) {
       //currentSearchTimeout = setTimeout(submitSearch, SEARCH_DELAY)
     }
     
   } else {
-    if (tabId) {
-      chrome.tabs.update(tabId, {url: url});
+    if (queryTab) {
+      chrome.tabs.update(queryTab.id, {url: url});
     } else {
       queryTab = await chrome.tabs.create({url: url, selected:true, active:true})
     }
     //clearSearch();
   }
 
-  if (focusWindow) chrome.windows.update(queryTab.windowId, { "focused": true })  
+  if (focusWindow) {
+    chrome.windows.update(queryTab.windowId, { "focused": true })  ;
+  }
 
 }
 
@@ -1051,6 +1097,8 @@ var SearchResults = function(vnode) {
         
         if (type == "search") favIconUrl = "/img/search.svg"
         if (!favIconUrl) favIconUrl = "/img/icon-url.png"
+
+        if (tab.subtypes && tab.subtypes.includes(10)) classList.push("didyoumean");
 
         return m('div.tab.result', { class: classList.join(" "),
             id: id,

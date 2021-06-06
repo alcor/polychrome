@@ -473,6 +473,10 @@ body:not(.menu):not(.search) .tab.pinned .icon {
   opacity: 0.9;
 }
 
+.tab.didyoumean {
+  font-style: oblique;
+}
+
 .tab.indent-0 {
   
 }
