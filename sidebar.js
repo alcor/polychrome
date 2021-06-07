@@ -28,7 +28,6 @@ var darkMode = getDefault(v({darkMode}), false);
 setTimeout(() => location.reload(), 60 * 1000 * 1000)
 
 var isSearchMode = window.location.href.indexOf("search.html") > 0;
-console.log("me", isSearchMode, window.location.href);
 
 var myWindowId = undefined;
 var lastWindowId = undefined;
@@ -50,12 +49,34 @@ await chrome.tabs.getCurrent((sidebar) => {
 
 
 
+let queryTabHistory = [];
+
+function queryTabHistoryAdd(item) {
+  if (!queryTab) return;
+  queryTabHistory.push(item);
+  console.log("pushed", item)
+}
+
+function queryTabHistoryClear() {
+  queryTabHistory.pop();
+
+  for(let item of queryTabHistory) {
+    if (item.visitCount == 1) {
+      chrome.history.deleteUrl({url:item.url});
+      console.log("clearing", item.url)
+    }
+  }
+  queryTabHistory = [];
+}
+
+chrome.history.onVisited.addListener(queryTabHistoryAdd);
 
 window.addEventListener('blur', windowBlurred);
 
 function windowBlurred() {
   //console.log('blur')
   queryTab = undefined;
+  queryTabHistoryClear()
   if (isSearchMode) {
     //chrome.windows.remove(myWindowId);
   } else {
@@ -166,7 +187,6 @@ let SUGGEST_BASE = "https://suggestqueries.google.com/complete/search?client=chr
 async function suggestResults(query) {
   const response = await fetch(SUGGEST_BASE + encodeURIComponent(query),  {"mode": 'no-cors'})
   const results = await response.json();
-  console.debug ("results", results)
   let items = [];
   const urls = results[1];
   const titles = results[2];
@@ -180,11 +200,11 @@ async function suggestResults(query) {
     items.push({
       url, title, type,
       id:url,
+      query:query,
       relevance:relevances[i],
       subtypes:subtypes[i]
     });
   }
-  console.debug(items)
   return items;
 }
 
@@ -192,19 +212,38 @@ function historySearch(params) {
 return new Promise(resolve => chrome.history.search(params, resolve));
 }
 
+async function tabSearch(query) {
+  let results = [];
+  for (let w of windows) {
+    for (let tab of w.tabs) {
+      if (!tab.title.toLowerCase().includes(query)) continue;
+      if (!tab.url.includes(query)) continue;
+      tab.type="tab";
+      results.push(tab);
+    }
+  }
+  
+  return results;
+}
 async function performDeepSearch(query, callback) {
   let history = await historySearch({text:query});
   let bookmarks = await chrome.bookmarks.search({query:query})
   let suggest = await suggestResults(query);
+  let tabs = await tabSearch(query)
 
   // chrome.history.search({text:query}, history => {
   //   chrome.bookmarks.search({query:query}, bookmarks => {
       let results = history.concat(bookmarks);
-
-      
       results.sort(sortResults);
 
       results = results.concat(suggest)
+
+
+
+      results.unshift({title:query, url:SEARCH_PREFIX + query})
+
+
+      results = tabs.concat(results)
 
       let titles = {};
       let prunedResults = [];
@@ -216,9 +255,6 @@ async function performDeepSearch(query, callback) {
         }
       }) 
       
-
-      prunedResults.unshift({title:query, url:SEARCH_PREFIX + query})
-
 
       if (query.indexOf(".") > 0 && query.indexOf(" ") < 0) {
         let url = "https://" + query
@@ -234,7 +270,6 @@ async function performDeepSearch(query, callback) {
         activeSearchResults = prunedResults;
         callback(true)
       } else {
-        console.debug("discarding", query, activeQuery)
         callback(false)
       }
   //   })
@@ -416,14 +451,11 @@ function titleForTab(tab) {
   let app = undefined;
   if (tab.url.length) {
     let url;
-
     try {
       url = new URL(tab.url);
     } catch (e) {
       console.log(`cannot read url "${tab.url}"`, e)
     }
-
-    //app = url.host;
 
     if (simplifyTitles) {
       let replacement = titleReplacements[url.hostname];
@@ -605,6 +637,7 @@ window.onkeydown = function(event) {
 
     m.redraw();
   } 
+
   if (event.metaKey && !event.shiftKey && event.key == 't') { // C-T
     chrome.tabs.create({})
       .then ((tab) => {    
@@ -835,6 +868,9 @@ var Toolbar = function(vnode) {
   return {
     view: function() {
       return m("div.toolbar", 
+        isSearchMode ?
+          m('div.button#searchicon', m('span.material-icons','search'))
+          : null,
         m(Search),
         myWindowId ? undefined : m('div.button#popout', {onclick:popOutSidebar}, m('span.material-icons','open_in_new')),
         // groupList.length ? m('div.button',
@@ -905,6 +941,7 @@ var Search = function(vnode) {
 var WindowList = function(vnode) {
   return {
     view: function(vnode) {
+      if (activeQuery) return null;
       if (!vnode.attrs.windows.length) return "";
       if (isSearchMode && (!activeQuery || activeQuery.length < 2)) return "";
       return m('div.windows#windows', {class:activeQuery ? "searching" : ""},
@@ -1100,13 +1137,23 @@ var SearchResults = function(vnode) {
 
         if (tab.subtypes && tab.subtypes.includes(10)) classList.push("didyoumean");
 
+        if (tab.type == 'tab') {
+          return m(Tab, {tab})
+        }
+        let {title, subtitle} = titleForTab(tab)
+
+        if (tab.query) {
+          let components = title.split(tab.query);
+          components = components.map(s => s.length ? "<b>" + s + "</b>" : s)
+          title = components.join(tab.query)
+        }
         return m('div.tab.result', { class: classList.join(" "),
             id: id,
             href: tab.url,
             onclick: focusResult.bind(null, tab.url, true, true)
           },
           m('img.icon', {src: favIconUrl}),
-          m('div.title', tab.title)
+          m('div.title', m.trust(title), subtitle ? m('span.app', " • " + subtitle) : undefined)
         )
         
       }));
@@ -1664,7 +1711,7 @@ var Tab = function(vnode) {
 
       if (queryTab?.id == tab.id ) return null;
       var classList = [];
-      if (tab.pinned) classList.push('pinned')
+      if (tab.pinned && !activeQuery) classList.push('pinned')
       if (tab.active) classList.push('active')
       if (tab.highlighted) classList.push('highlighted');
       if (host) classList.push("host-" + host.replace(/\./g,"-"))
