@@ -161,10 +161,10 @@ async function searchInput(e) {
   m.redraw.sync();
   if (query.length > 0) {
     performDeepSearch(query, (valid) => {
-      if (valid && query.length > 2) {
+      if (valid && query.length > 0) {
         m.redraw.sync();
         let tab = document.querySelector(".tab") 
-        selectItem(tab)
+        if (query.length > 0) selectItem(tab)
       } else {
         selectedItemId = undefined;
       }
@@ -178,7 +178,8 @@ async function searchInput(e) {
 }
 
 function sortResults(a,b) {
-  let order = b.visitCount - a.visitCount;
+  let order = (b.visitCount || 1) - (a.visitCount || 1);
+  
   if (!order) order = (b.lastVisitTime || b.dateAdded) - (a.lastVisitTime || a.dateAdded);
   return order;
 }
@@ -216,9 +217,8 @@ async function tabSearch(query) {
   let results = [];
   for (let w of windows) {
     for (let tab of w.tabs) {
-      if (!tab.title.toLowerCase().includes(query)) continue;
-      if (!tab.url.includes(query)) continue;
-      tab.type="tab";
+      if (!tab.title.toLowerCase().includes(query) && !tab.url.includes(query)) continue;
+      tab.type = "tab";
       results.push(tab);
     }
   }
@@ -226,22 +226,22 @@ async function tabSearch(query) {
   return results;
 }
 async function performDeepSearch(query, callback) {
-  let history = await historySearch({text:query});
-  let bookmarks = await chrome.bookmarks.search({query:query})
-  let suggest = await suggestResults(query);
   let tabs = await tabSearch(query)
 
+  let results = []
+  if ((query.length > 2)) {
+    let history = await historySearch({text:query, maxResults:30, startTime:0});
+    let bookmarks = await chrome.bookmarks.search({query:query})
+    let suggest = await suggestResults(query);
+    results = history.concat(bookmarks);
+    results.sort(sortResults);
+    results.splice(10);
+    results = results.concat(suggest)
+  }
   // chrome.history.search({text:query}, history => {
   //   chrome.bookmarks.search({query:query}, bookmarks => {
-      let results = history.concat(bookmarks);
-      results.sort(sortResults);
-
-      results = results.concat(suggest)
-
-
 
       results.unshift({title:query, url:SEARCH_PREFIX + query})
-
 
       results = tabs.concat(results)
 
@@ -263,7 +263,9 @@ async function performDeepSearch(query, callback) {
         prunedResults.unshift({title:query, url:query});
       }
 
-      prunedResults.splice(10);
+      console.log("Results", history)
+
+      prunedResults.splice(30);
 
 
       if (query == activeQuery) {
