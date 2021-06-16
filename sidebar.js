@@ -22,7 +22,7 @@ let tabRecents = [];
 var autofocus = getDefault(v({autofocus}), false);
 var preserveGroups = getDefault(v({preserveGroups}), true);
 var simplifyTitles = getDefault(v({simplifyTitles}), true); 
-var autofocusResults = true;
+var autofocusResults = getDefault(v({autofocusResults}), true);
 var darkMode = getDefault(v({darkMode}), false); 
 
 setTimeout(() => location.reload(), 60 * 1000 * 1000)
@@ -72,17 +72,26 @@ function queryTabHistoryClear() {
 chrome.history.onVisited.addListener(queryTabHistoryAdd);
 
 window.addEventListener('blur', windowBlurred);
+window.addEventListener('focus', windowFocused);
 
+
+let searchClearTimeout;
 function windowBlurred() {
-  //console.log('blur')
-  queryTab = undefined;
-  queryTabHistoryClear()
+  searchClearTimeout = setTimeout(clearSearch, 3000)
+}
+
+function windowFocused() {
+  clearTimeout(searchClearTimeout);
+}
+
+function clearSearchMode () {
   if (isSearchMode) {
     //chrome.windows.remove(myWindowId);
   } else {
     clearSearch();
   }
 }
+
 if (navigator.userAgent.indexOf("Windows") !== -1) {
   document.body.classList.add("windows")
 }
@@ -166,7 +175,6 @@ async function searchInput(e) {
         let tab = document.querySelector(".tab") 
         if (query.length > 0) selectItem(tab)
       } else {
-        selectedItemId = undefined;
       }
       m.redraw.sync();
     })
@@ -210,7 +218,7 @@ async function suggestResults(query) {
 }
 
 function historySearch(params) {
-return new Promise(resolve => chrome.history.search(params, resolve));
+  return new Promise(resolve => chrome.history.search(params, resolve));
 }
 
 async function tabSearch(query) {
@@ -226,57 +234,57 @@ async function tabSearch(query) {
   return results;
 }
 async function performDeepSearch(query, callback) {
-  let tabs = await tabSearch(query)
+  let results = await tabSearch(query)
 
-  let results = []
+  if (results.length) {
+    activeSearchResults = results;
+    m.redraw();
+  }
+
+  
   if ((query.length > 2)) {
+
+    if (query.indexOf(".") > 0 && query.indexOf(" ") < 0) {
+      let url = "https://" + query
+      results.push({title:query, url:url});
+    } else if (query.startsWith("chrome:")) {
+      results.push({title:query, url:query});
+    }
+
+    results.push({title:query, url:SEARCH_PREFIX + query})
+
     let history = await historySearch({text:query, maxResults:30, startTime:0});
     let bookmarks = await chrome.bookmarks.search({query:query})
-    let suggest = await suggestResults(query);
-    results = history.concat(bookmarks);
-    results.sort(sortResults);
-    results.splice(10);
-    results = results.concat(suggest)
+    let suggest;
+    if (isMenuMode || isSearchMode) {
+      suggest = await suggestResults(query);
+    }
+    history = history.concat(bookmarks);
+    history.sort(sortResults);
+    history.splice(10);
+
+    results = results.concat(history, suggest)
   }
-  // chrome.history.search({text:query}, history => {
-  //   chrome.bookmarks.search({query:query}, bookmarks => {
 
-      results.unshift({title:query, url:SEARCH_PREFIX + query})
+  let titles = {};
+  let prunedResults = [];
 
-      results = tabs.concat(results)
+  results.forEach(r => {
+    if (!r) return;
+    if (!titles[r.title]) {
+      titles[r.title] = r;
+      prunedResults.push(r);
+    }
+  }) 
 
-      let titles = {};
-      let prunedResults = [];
+  prunedResults.splice(30);
 
-      results.forEach(r => {
-        if (!titles[r.title]) {
-          titles[r.title] = r;
-          prunedResults.push(r);
-        }
-      }) 
-      
-
-      if (query.indexOf(".") > 0 && query.indexOf(" ") < 0) {
-        let url = "https://" + query
-        prunedResults.unshift({title:query, url:url});
-      } else if (query.startsWith("chrome:")) {
-        prunedResults.unshift({title:query, url:query});
-      }
-
-      console.log("Results", history)
-
-      prunedResults.splice(30);
-
-
-      if (query == activeQuery) {
-        activeSearchResults = prunedResults;
-        callback(true)
-      } else {
-        callback(false)
-      }
-  //   })
-  // })
-
+  if (query == activeQuery) {
+    activeSearchResults = prunedResults;
+    callback(true)
+  } else {
+    callback(false)
+  }
 }
 
 
@@ -307,6 +315,9 @@ async function searchKey(e) {
 }
 
 function clearSearch() {
+  queryTab = undefined;
+  queryTabHistoryClear()
+
   var searchEl = document.getElementById("search");
   searchEl.value = "";
   activeQuery = ""
@@ -606,9 +617,12 @@ async function selectItem(item, immediately) {
 
   if (isMenuMode) return;
 
+
   if (autofocusResults && !isMenuMode) {
-    if (parseInt(id)) {
-      focusTab(parseInt(id))
+    let tabId = parseInt(id)
+    if (tabId) {
+      let tab = await chrome.tabs.update(tabId, { 'active': true });
+      if (!tab.discarded) focusTab(tabId);
     } else {
       let url = item.getAttribute('href');
       focusResult(url, immediately, false);
@@ -756,6 +770,10 @@ function updateTab(tabId, changeInfo, tab) {
   if (tabId == queryTab) {
     console.log("queryTab", changeInfo)
   }
+  if (tabsToDiscard[tabId] == true && changeInfo.title) {
+    chrome.tabs.discard(tabId);
+    delete tabsToDiscard[tabId];
+  }
   for (var w of windows) {
     if (w.id == tab.windowId) {
       w.tabs[tab.index] = tab;
@@ -765,6 +783,10 @@ function updateTab(tabId, changeInfo, tab) {
   }
 }
 function updateGroup(tabGroup) {
+  let priorInfo = groupInfo[tabGroup.id] || {};
+  if (tabGroup.collapsed && !priorInfo.collapsed) {
+    console.log("collapsed", tabGroup)
+  }
   groupInfo[tabGroup.id] = tabGroup;
   m.redraw();
 }
@@ -889,7 +911,7 @@ var Toolbar = function(vnode) {
           m('hr'),
 
           m('div.action', {onclick:() => { removeDuplicates() }}, "Remove Duplicates"),
-          m('div.action', {onclick:() => { discardAllTabs() }}, "Unload all tabs"),
+          m('div.action', {onclick:() => { discardAllTabs() }}, "Sleep background tabs"),
           m('hr'),
 
           m('div.action', {onclick:() => { sortTabs('domain') }}, "Group by Domain"),
@@ -906,7 +928,10 @@ var Toolbar = function(vnode) {
           m('div.sort.menu',
             m('div.action', {class: autofocus, title:"(Mac only), focuses this window when the mouse enters, to reduce the need to click multiple times.",
             onclick: () => setDefault(v({autofocus}), autofocus = !autofocus)
-            }, "Aggressive autofocus"),
+            }, "Activate window on hover"),
+            m('div.action', {class: autofocusResults, title:"Focus first result while typing",
+            onclick: () => setDefault(v({autofocusResults}), autofocusResults = !autofocusResults)
+            }, "Autofocus top search result"),
             m('div.action', {class: simplifyTitles, title:"Simplify titles",
             onclick: () => setDefault(v({simplifyTitles}), simplifyTitles = !simplifyTitles)
             }, "Simplify titles"),
@@ -1090,7 +1115,6 @@ async function focusResult(url, immediately, focusWindow) {
     } else {
       queryTab = await chrome.tabs.create({url: url, selected:true, active:true})
     }
-    //clearSearch();
   }
 
   if (focusWindow) {
@@ -1573,6 +1597,8 @@ e.preventDefault();
 
 }
 
+let tabsToDiscard = {}
+
 let restoreGroup = async (group) => {
   console.log("restore", group)
   
@@ -1585,7 +1611,6 @@ let restoreGroup = async (group) => {
 
   groupList.splice(groupList.indexOf(group),1)
 
-
   let existing = (await chrome.tabGroups.query(query))[0]
   if (existing) {
     console.log("existing", existing)
@@ -1593,7 +1618,11 @@ let restoreGroup = async (group) => {
     tabs = tabs.filter((tab) => {return tab.groupId == existing.id})
     if (tabs.length) focusTab(tabs[0].id);
   } else {
-    let promises = group.tabs.map((tab, i) => chrome.tabs.create({url: tab.url, selected:false, active:false}))
+    let promises = group.tabs.map((tab, i) => {
+      let promise = chrome.tabs.create({url: tab.url, selected:false, active:false})
+      if (true) promise = promise.then(t => { tabsToDiscard[t.id] = true; return t;})
+      return promise;
+    })
     Promise.all(promises)
     .then (tabs => {
       return chrome.tabs.group({tabIds:tabs.map(t => t.id), createProperties:{windowId: tabs[0].windowId}})
@@ -1778,3 +1807,48 @@ chrome.runtime.onMessage.addListener(
       sendResponse({farewell: "goodbye"});
   }
 );
+
+
+
+
+
+
+
+
+
+
+
+
+
+// Bookmark mirroring
+
+// chrome.bookmarks.onMoved.addListener(function(id, moveInfo) {
+//   console.log("1MOVED", id, moveInfo); 
+//   chrome.tabs.query({}, function(results) {
+//     var tab = results[moveInfo.oldIndex]
+//     console.log("2TAB", tab)
+//     ignoreNextTabMove = true;
+//     chrome.tabs.move(tab.id, {windowId:undefined, index:moveInfo.index}, function(){
+//       console.log("3done")
+//     })
+//   });
+// });
+
+// chrome.bookmarks.onChildrenReordered.addListener(function(id, reorderInfo) {
+//   console.log("REORDERED", id, reorderInfo); 
+// });
+
+
+
+
+// function updateTab(id, change, tab) {
+// console.log("updateTab", id, change, tab)
+// }
+
+// function updateGroup(group) {
+//   console.log("updateGroup", group)
+// }
+
+// chrome.tabs.onUpdated.addListener(updateTab);
+// chrome.tabGroups.onUpdated.addListener(updateGroup);
+

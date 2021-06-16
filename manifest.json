@@ -1,8 +1,8 @@
 {
-  "name": "Polychrome - Vertical Tabs, Groups & Search",
+  "name": "Polychrome: Vertical Tab Groups & Search",
   "short_name": "Polychrome",
   "description": "Groupable side tabs, window management, search and more — in a svelte and speedy package.",
-  "version": "0.9.6",
+  "version": "0.9.9",
   "icons": {
     "32": "img/tabs.png",
     "128": "img/tabs_color.png" 
