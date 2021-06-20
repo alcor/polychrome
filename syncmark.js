@@ -5,6 +5,9 @@
 
 // Utility functions to handle defaults
 
+// chrome.runtime.onInstalled.addListener(setup);
+// chrome.runtime.onStartup.addListener(setup);
+
 let v = (nameObject) => { for(let varName in nameObject) { return varName; } }
 
 function getDefault(key, fallback) {
@@ -30,7 +33,7 @@ let ignoreNextTabMove;
 
 
 
-var Syncmark = function(vnode) {
+var Preview = function(vnode) {
   return {
     view: function(vnode) {
       let children = [];
@@ -40,7 +43,6 @@ var Syncmark = function(vnode) {
         let folder = groupsToFolders[item];
         children.push(m('div.tab', item, " - ", folder.title, " - ", folder.id))
       }
-      console.log("children", children, groupsToFolders)
       return m('div.group', children);
     }
   }
@@ -48,7 +50,7 @@ var Syncmark = function(vnode) {
 
 async function onStartup() {
   updateAllFoldersAndGroups()
-  m.mount(document.body, Syncmark)
+  m.mount(document.body, Preview)
 }
 onStartup();
 
@@ -87,8 +89,10 @@ async function updateFolderWithTabs(folder, group, tabs) {
     }
     children.splice(children.indexOf(child), 1);
   }
-  console.log("Removing orphans:", children)
-  children.forEach(child => chrome.bookmarks.remove(child.id))
+  if (children.length) {
+    console.log("Removing orphans:", children);
+    children.forEach(child => chrome.bookmarks.remove(child.id));
+  }
 }
 
 async function tabsForGroup(group) { // There is a bug in tab.query for groupIds, so...
@@ -133,10 +137,8 @@ function folderTitleForGroup(group) {
 }
 
 async function folderForGroup(group) {
-  console.log("group.id", group, groupsToFolders)
   if (groupsToFolders[group.id]) {
-    console.log("returning folder", group.id,  groupsToFolders[group.id] )
-    return (await chrome.bookmarks.get(groupsToFolders[group.id])).pop();
+    return (await chrome.bookmarks.get(groupsToFolders[group.id].id)).pop();
   }
 
   let rootId = await getBookmarkRoot();
@@ -182,16 +184,18 @@ async function tabMoved(id, change) {
   // TODO: Suppress bookmark change notifications
   // if (ignoreNextTabMove) {
   //   ignoreNextTabMove = false;
-  // } else {
 
-    // let groupFolder = await getBookmarkRoot()
-    // let tab = await chrome.tabs.get(id);
-    // console.log(id, change, tab)
+  let w = await chrome.windows.get(change.windowId, {populate:true});
+  let tab = w.tabs.find(t => t.id == id);
 
-    // let children = await chrome.bookmarks.getChildren(groupFolder.id);
-    // var item = children[moveInfo.fromIndex];
-    //await chrome.bookmarks.move(item.id, {parentId: rootFolder.id, index: moveInfo.toIndex});
-  //}
+  if (!tab.groupId) return;
+
+  let groupId = tab.groupId;
+  let group = await chrome.tabGroups.get(groupId);
+  let tabs = await tabsForGroup(group);
+  let folder = await folderForGroup(group);
+
+  updateFolderWithTabs(folder, group, tabs);
 }
 
 
@@ -201,10 +205,14 @@ async function tabUpdated(id, change, tab) {
 
   if (tab.groupId < 0) return;
   let group = await chrome.tabGroups.get(tab.groupId);
+  let tabs = await tabsForGroup(group);
   let folder = await folderForGroup(group);
 
-  // TODO: Find the right group folder and update the contents
-  //  chrome.bookmarks.create({parentId: folder.id, title: tab.title, url: tab.url})
+  let index = tabs.findIndex(t => t.id == id);
+  let children = await chrome.bookmarks.getChildren(folder.id);
+  let bookmark = children[index];
+
+  chrome.bookmarks.update(bookmark.id, {title: tab.title, url: tab.url});
 }
 
 
