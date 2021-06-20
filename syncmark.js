@@ -32,25 +32,57 @@ let ignoreNextTabMove;
 
 
 
-
-var Preview = function(vnode) {
+let allFolders = [];
+var Groups = function(vnode) {
   return {
     view: function(vnode) {
-      let children = [];
-
-      // TODO: This should use a better data store, probably JS classes
-      for (let item in groupsToFolders) {
-        let folder = groupsToFolders[item];
-        children.push(m('div.tab', item, " - ", folder.title, " - ", folder.id))
-      }
-      return m('div.group', children);
+      return m('div.group', allFolders.map(f => {
+        if (f.url) return null;
+        return m('div.folder', {onclick:restoreGroupWithBookmark.bind(null, f.id)}, f.title);
+      }));
     }
   }
 }
 
+
+let tabsToDiscard = {}
+
+async function restoreGroupWithBookmark(id) { 
+  let folder = (await chrome.bookmarks.get(id)).pop()
+
+  let info = infoForFolderTitle(folder.title)
+  let color = info.color;
+  let title = info.title;
+
+  let existing = (await chrome.tabGroups.query({title: title, color:color})).pop();
+  if (existing) {
+    let tabs = await tabsForGroup(existing.id);
+    chrome.tabs.update(tabs[0].id, {active:true})
+    return;
+  } 
+
+  let children = await chrome.bookmarks.getChildren(id)
+  let promises = children.map((bookmark, i) => {
+    //if (bookmark.url.startsWith("chrome-extension://")) return; // Ignore metadata bookmarks
+    let promise = chrome.tabs.create({url: bookmark.url, selected:false, active:false})
+    if (true) promise = promise.then(t => { tabsToDiscard[t.id] = true; return t;})
+    return promise;
+  })
+
+  Promise.all(promises).then (tabs => {
+    return chrome.tabs.group({tabIds:tabs.map(t => t.id), createProperties:{windowId: tabs[0].windowId}})
+    .then((gid) => {
+      chrome.tabs.update(tabs[0].id, { 'active': true });
+      chrome.tabGroups.update(gid, {title:group.title, color:group.color})
+    })
+  }) 
+}
+
+
+
 async function onStartup() {
-  updateAllFoldersAndGroups()
-  m.mount(document.body, Preview)
+  await updateAllFoldersAndGroups()
+  m.mount(document.body, Groups)
 }
 onStartup();
 
@@ -59,6 +91,8 @@ async function updateAllFoldersAndGroups() {
   let rootId = await getBookmarkRoot();
   let groups = await chrome.tabGroups.query({});
   let folders = await chrome.bookmarks.getChildren(rootId);
+
+  allFolders = folders;
 
   for (let group of groups) {
     let title = folderTitleForGroup(group);
@@ -131,9 +165,19 @@ async function getBookmarkRoot() {
 
 
 let colorEmoji = { grey: "⚪️", blue: "🔵", red: "🔴", yellow: "🟠", green: "🟢", pink: "🌸", purple: "🟣", cyan: "🌐" }
+let emojiColors = Object.assign({}, ...Object.entries(colorEmoji).map(([a,b]) => ({[b]: a})))
+
+console.log(emojiColors);
 
 function folderTitleForGroup(group) {
   return `${colorEmoji[group.color]} ${group.title || group.color}`;
+}
+
+function infoForFolderTitle(string) {
+  let match = string.match(/(?<color>\S+) (?<title>.*)/);
+  let info = match.groups;
+  info.color = emojiColors[info.color];
+  return info
 }
 
 async function folderForGroup(group) {
@@ -201,6 +245,12 @@ async function tabMoved(id, change) {
 
 
 async function tabUpdated(id, change, tab) {
+
+  if (tabsToDiscard[id] == true && changeInfo.title) {
+    chrome.tabs.discard(id);
+    delete tabsToDiscard[id];
+  }
+  
   if (change.status != 'complete') return;
 
   if (tab.groupId < 0) return;
