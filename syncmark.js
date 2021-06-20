@@ -56,7 +56,7 @@ async function restoreGroupWithBookmark(id) {
 
   let existing = (await chrome.tabGroups.query({title: title, color:color})).pop();
   if (existing) {
-    let tabs = await tabsForGroup(existing.id);
+    let tabs = await tabsForGroup(existing);
     chrome.tabs.update(tabs[0].id, {active:true})
     return;
   } 
@@ -65,7 +65,7 @@ async function restoreGroupWithBookmark(id) {
   let promises = children.map((bookmark, i) => {
     //if (bookmark.url.startsWith("chrome-extension://")) return; // Ignore metadata bookmarks
     let promise = chrome.tabs.create({url: bookmark.url, selected:false, active:false})
-    if (true) promise = promise.then(t => { tabsToDiscard[t.id] = true; return t;})
+    if (i > 0) promise = promise.then(t => { tabsToDiscard[t.id] = true; return t;})
     return promise;
   })
 
@@ -73,7 +73,7 @@ async function restoreGroupWithBookmark(id) {
     return chrome.tabs.group({tabIds:tabs.map(t => t.id), createProperties:{windowId: tabs[0].windowId}})
     .then((gid) => {
       chrome.tabs.update(tabs[0].id, { 'active': true });
-      chrome.tabGroups.update(gid, {title:group.title, color:group.color})
+      chrome.tabGroups.update(gid, {title:title, color:color})
     })
   }) 
 }
@@ -246,7 +246,7 @@ async function tabMoved(id, change) {
 
 async function tabUpdated(id, change, tab) {
 
-  if (tabsToDiscard[id] == true && changeInfo.title) {
+  if (tabsToDiscard[id] == true && change.title) {
     chrome.tabs.discard(id);
     delete tabsToDiscard[id];
   }
