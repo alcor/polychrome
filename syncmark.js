@@ -74,8 +74,13 @@ async function restoreGroupWithBookmark(bookmarkId) {
 
   let children = await chrome.bookmarks.getChildren(bookmarkId)
   let promises = children.map((bookmark, i) => {
-    //if (bookmark.url.startsWith("chrome-extension://")) return; // Ignore metadata bookmarks
+
+     // Ignore metadata bookmarks
+    //if (bookmark.url.startsWith("chrome-extension://")) return;
+
     let promise = chrome.tabs.create({url: bookmark.url, selected:false, active:false})
+
+    // Discard tabs that are not focused
     if (i > 0) promise = promise.then(t => { tabsToDiscard[t.id] = true; return t;})
     return promise;
   })
@@ -367,7 +372,7 @@ async function tabDidChangeProperties(id, change, tab) {
 // Initializer
 //
 async function onStartup() {
-  console.log('Startup', EMOJI_COLORS);
+  console.log('Startup');
   await updateAllFoldersAndGroups();
   await initializeTabGroupMapping();
   m.mount(document.body, Groups)
@@ -389,13 +394,20 @@ chrome.tabs.onRemoved.addListener(tabRemoved);
 
 // TBD, needs to avoid cycles
 
-// async function bookmarkMoved(id,moveInfo) {
-//   chrome.tabs.query({}, function(results) {
-//     var tab = results[moveInfo.oldIndex]
-//     chrome.tabs.move(tab.id, {windowId:undefined, index:moveInfo.index}, function(){
-//     })
-//   });
-// }
-// chrome.bookmarks.onChildrenReordered.addListener(bookmarkMoved)
+chrome.bookmarks.onChildrenReordered.addListener(bookmarkDidMove)
+async function bookmarkDidMove(id,moveInfo) {
+  console.debug('bookmarkDidMove', {id}, moveInfo)
+  // chrome.tabs.query({}, function(results) {
+  // var tab = results[moveInfo.oldIndex]
+  //    chrome.tabs.move(tab.id, {windowId:undefined, index:moveInfo.index}, function(){
+  //     })
+  //   });
+}
+
+chrome.bookmarks.onChanged.addListener(bookmarkDidChange)
+async function bookmarkDidChange(id, changeInfo) {
+  console.debug('bookmarkDidChange', {id}, changeInfo)
+}
+
 
 
