@@ -35,6 +35,8 @@ const BOOKMARK_ROOT_KEY = 'bookmarkRoot'
 let existingGroupsToFolders = {}
 // Created at startup, tracks which tabs are in which group.
 let existingTabToGroup = {}
+// Global monitoring state -- if state
+let shouldMonitorTabChanges = true;
 
 let currentBookmarkRootId = getDefault('bookmarkRoot');
 let ignoreNextTabMove = false;
@@ -61,6 +63,8 @@ async function restoreGroupWithBookmark(bookmarkId) {
   let color = info.color;
   let title = info.title;
 
+  console.log('restoreGroupWithBookmark', info);
+
   let existing = (await chrome.tabGroups.query({title: title, color:color})).pop();
   if (existing) {
     let tabs = await tabsForGroup(existing);
@@ -76,14 +80,21 @@ async function restoreGroupWithBookmark(bookmarkId) {
     return promise;
   })
 
+  shouldMonitorTabChanges = false;
   Promise.all(promises).then (tabs => {
     return chrome.tabs.group({tabIds:tabs.map(t => t.id), createProperties:{windowId: tabs[0].windowId}})
-    .then((gid) => {
-      chrome.tabs.update(tabs[0].id, { 'active': true });
-      chrome.tabGroups.update(gid, {title:title, color:color})
+    .then(async (gid) => {
+      await chrome.tabs.update(tabs[0].id, { active: true });
+      return chrome.tabGroups.update(gid, {title:title, color:color})
+    })
+    .then(() => {
+      shouldMonitorTabChanges = true;
     })
   }) 
 }
+
+//////////////////////////////////////////////////////////////////////
+// Tab state saving.
 
 async function initializeTabGroupMapping() {
   const tabs = await chrome.tabs.query({});
@@ -230,11 +241,14 @@ async function folderForGroup(group) {
   return folder;
 }
 
-
-// Tab Group Event Handling
+//////////////////////////////////////////////////////////////////////
+// Tab and Tab Group event handling
 
 // Called when properties of the group changes like the color or name.
 async function groupUpdated(group) {
+  if (!shouldMonitorTabChanges) {
+    return;
+  }
   console.log('groupUpdated', group);
 
   const folderId = existingGroupsToFolders[group.id];
@@ -250,19 +264,31 @@ async function groupUpdated(group) {
 }
 
 function tabCreated(tab) {
+  if (!shouldMonitorTabChanges) {
+    return;
+  }
   console.log("tabCreated", tab)
 }
 
+function tabRemoved(tab) {
+  if (!shouldMonitorTabChanges) {
+    return;
+  }
+  console.log("tabRemoved", tab);
+}
+
 async function tabMoved(id, change) {
-  // TODO: Suppress bookmark change notifications
-  // if (ignoreNextTabMove) {
-  //   ignoreNextTabMove = false;
+  if (!shouldMonitorTabChanges) {
+    return;
+  }
   console.log('tabMoved', {id, change})
 
   let w = await chrome.windows.get(change.windowId, {populate:true});
   let tab = w.tabs.find(t => t.id == id);
 
-  if (!tab.groupId) return;
+  if (!tab || tab.groupId == -1) {
+    return;
+  }
 
   let groupId = tab.groupId;
   let group = await chrome.tabGroups.get(groupId);
@@ -273,6 +299,9 @@ async function tabMoved(id, change) {
 }
 
 async function tabUpdated(id, change, tab) {
+  if (!shouldMonitorTabChanges) {
+    return;
+  }
   console.log('tabUpdated', {id, change, tab})
 
   if (tabsToDiscard[id] == true && change.title) {
@@ -283,6 +312,9 @@ async function tabUpdated(id, change, tab) {
   // Tab moved groups.
   if (change && typeof change.groupId !== 'undefined') {
     tabDidChangeGroups(id, change, tab);
+  } else if (change && (change.status || change.title)) {
+    // Ignore loading status changes.
+
   } else if (tab.groupId > -1) {  
     // if tab.groupId == -1, that means it's not in a group.
     tabDidChangeProperties(id, change, tab);
@@ -290,14 +322,23 @@ async function tabUpdated(id, change, tab) {
 }
 
 async function tabDidChangeGroups(id, change, tab) {
-  if (change.groupId == -1) {
+  if (change.groupId == -1 && tab.discared) {
+    // Tab is removed from group and deleted at the same time. 
+    // This probably means the group is being removed.
+
+  } else if (change.groupId == -1) {
     const previousGroupId = existingTabToGroup[tab.id];
     if (typeof previousGroupId !== 'undefined' && previousGroupId != -1) {
-      const group = await chrome.tabGroups.get(previousGroupId);
-      const tabs = await tabsForGroup(group);
-      const folder = await folderForGroup(group);  
-      updateFolderWithTabs(folder, group, tabs)
-      delete existingTabToGroup[id]
+      chrome.tabGroups.get(previousGroupId).then(async group => {
+        const tabs = await tabsForGroup(group);
+        const folder = await folderForGroup(group);  
+        updateFolderWithTabs(folder, group, tabs)
+        delete existingTabToGroup[id]  
+      })
+      .catch(() => {
+        // Group doesn't exist any more.
+        delete existingTabToGroup[id]  
+      })
     }
   } else {
     // Tab moved groups, also move it in the folders.
@@ -339,9 +380,9 @@ chrome.tabGroups.onUpdated.addListener(groupUpdated);
 chrome.tabs.onCreated.addListener(tabCreated);
 chrome.tabs.onMoved.addListener(tabMoved);
 chrome.tabs.onUpdated.addListener(tabUpdated);
+chrome.tabs.onRemoved.addListener(tabRemoved);
 // chrome.tabs.onAttached.addListener()
 // chrome.tabs.onDetached.addListener()
-// chrome.tabs.onRemoved.addListener()
 
 
 // Bookmark Event handling
