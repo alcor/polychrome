@@ -27,8 +27,28 @@ let USE_BOOKMARKS_BAR = false;
 let groupsToFolders = {};
 let ignoreNextTabMove;
 
+
+
+
+var Syncmark = function(vnode) {
+  return {
+    view: function(vnode) {
+      let children = [];
+
+      // TODO: This should use a better data store, probably JS classes
+      for (let item in groupsToFolders) {
+        let folder = groupsToFolders[item];
+        children.push(m('div.tab', item, " - ", folder.title, " - ", folder.id))
+      }
+      console.log("children", children, groupsToFolders)
+      return m('div.group', children);
+    }
+  }
+}
+
 async function onStartup() {
   updateAllFoldersAndGroups()
+  m.mount(document.body, Syncmark)
 }
 onStartup();
 
@@ -42,7 +62,7 @@ async function updateAllFoldersAndGroups() {
     let title = folderTitleForGroup(group);
     let folder = folders.find(f => f.title == title);
     if (folder) {
-      groupsToFolders[group.id] = folder.id;
+      groupsToFolders[group.id] = folder;
 
       let tabs = await tabsForGroup(group);
       updateFolderWithTabs(folder, group, tabs);
@@ -50,6 +70,7 @@ async function updateAllFoldersAndGroups() {
       // TODO: Create the group
     }
   }
+  m.redraw();
 }
 
 async function updateFolderWithTabs(folder, group, tabs) {
