@@ -15,8 +15,7 @@
   },
   "action": {
     "default_icon": "img/tabs.png",
-    "default_title": "Polychrome",
-    "default_popup": "sidebar.html"
+    "default_title": "Polychrome"
   },
   "commands": {
     "sidebar": {

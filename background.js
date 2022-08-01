@@ -2,6 +2,10 @@ chrome.runtime.onInstalled.addListener(function() {
   console.log("Polychrome Installed");
 });
 
+chrome.action.onClicked.addListener((tab) => {
+  toggleSidebar();
+});
+
 chrome.commands.onCommand.addListener((command) => {
   if (command == "search") {
     toggleSearch();
